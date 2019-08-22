@@ -1,0 +1,110 @@
+Please enter number of rows:
+5
+Please enter number of columns:
+5
+Please enter game duration in seconds and max number of moves:
+400 40
+Please enter the board:
+OBOOOOBOOOOOFRABOOOOOOBRO
+
+We are all set. Total time: 400 sec
+Max number of allowed moves: 40 moves
+Press Enter key when you are ready...
+
+Current Board:
+* B * * *
+* B * * *
+* * F R A
+B * * * *
+* * B R *
+Moves:
+40 moves left, please enter your move:
+4 3 U
+
+Current Board:
+* B * * *
+* B * * *
+* * F R A
+B * * R *
+* * B * *
+Moves: (4,3,U)
+37 moves left, please enter your move:
+3 3 L
+
+Current Board:
+* B * * *
+* B * * *
+* * F R A
+B R * * *
+* * B * *
+Moves: (4,3,U)->(3,3,L)
+36 moves left, please enter your move:
+3 1 U
+
+Current Board:
+* B * * *
+* B * * *
+* R F R A
+B * * * *
+* * B * *
+Moves: (4,3,U)->(3,3,L)->(3,1,U)
+35 moves left, please enter your move:
+2 3 L
+
+Current Board:
+* B * * *
+* B * * *
+* R R * A
+B * * * *
+* * B * *
+Moves: (4,3,U)->(3,3,L)->(3,1,U)->(2,3,L)
+34 moves left, please enter your move:
+2 2 D
+
+Current Board:
+* B * * *
+* B * * *
+* R F * A
+B * R * *
+* * B * *
+Moves: (4,3,U)->(3,3,L)->(3,1,U)->(2,3,L)->(2,2,D)
+33 moves left, please enter your move:
+3 2 D
+
+Illegal move. Try again
+3 2 U
+
+Illegal move. Try again
+3 2 R
+
+Illegal move. Try again
+3 2 L
+
+Current Board:
+* B * * *
+* B * * *
+* R F * A
+B R * * *
+* * B * *
+Moves: (4,3,U)->(3,3,L)->(3,1,U)->(2,3,L)->(2,2,D)->(3,2,L)
+27 moves left, please enter your move:
+2 4 R
+
+Illegal move. Try again
+2 4 U
+
+Illegal move. Try again
+2 4 D
+
+Illegal move. Try again
+2 4 L
+
+Current Board:
+* B * * *
+* B * * *
+* R X * *
+B R * * *
+* * B * *
+Final Moves: (4,3,U)->(3,3,L)->(3,1,U)->(2,3,L)->(2,2,D)->(3,2,L)->(2,4,L)
+Well done, you won!
+

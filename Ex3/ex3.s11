@@ -1,0 +1,671 @@
+;==================================================
+; program
+;==================================================
+. = torg + 1000
+	
+
+main:		mov pc,sp					; stack initiallization
+			tst -(sp)
+			
+			jsr pc,checkBoard			; checking board  and return [-1,*,...*] in boath output arrays if board isn't legal
+			cmp r4,#0
+			beq compute
+			movb #377,MovesShort
+			movb #377,MovesScore
+			halt
+		
+compute:	mov #MovesShort,-(sp)		; compute MovesShort
+			mov numMoves,-(sp)
+			jsr pc,findShortest
+			mov (sp)+,(sp)+
+			
+			mov #MovesScore,-(sp)		; compute MovesScore
+			mov numMoves,-(sp)
+			jsr pc,findScore
+			mov (sp)+,(sp)+
+			
+			
+			
+			halt	
+
+
+
+
+
+;==========================================================================================================================
+;	name :	 		findShortest 
+
+;	params :		Board:  	the board itself is given in common area
+;					nRows:		the number of rows in the board	given in common area
+;					nCols:		the number of colons in the board given in common area
+;					size:		the max number of moves allowed given by stack
+
+;					MovesArr:	a pointer to a result array of bytes returned by stack
+
+;	description:	the procedure compute the shortest path that leads to a triumph and write it into MovesArr array				
+;--------------------------------------------------------------------------------------------------------------------------
+;	saving original register values and stack
+
+findShortest:	mov r0,-(sp)
+				mov r1,-(sp)
+				mov r2,-(sp)
+				mov r4,-(sp)
+				mov r5,-(sp)
+; --------------------------------------------------------------------------------------------------------------------------
+;size = 14(sp)
+;MovesArr = 16(sp)
+
+				mov 16(sp),r0			; r0 = MovesArr
+				mov 14(sp),r1			; r1 = size
+				cmp r1,#1				; size == 1 is stopping condition of the recursion
+				bne recFS
+										;check all combination of size == 1 ([1,@],[2,@],...,[6,@])
+				movb #1,(r0)				
+				movb #'@,1(r0)
+										
+	do:			tst -(sp)				; allocate stack for score
+				mov r0,r4				; r4 = MovesArr
+				jsr pc,checkSol			; score == -1 ==> MovesArr don't leed to a triumph
+				mov (sp)+,r2			; r2 = score and pop score_slot from stack
+				cmp r2,#177777
+				beq checkN
+				jmp exitFS 				; MovesArr leads to a triumph so return
+				
+	checkN:		mov r0,4(pc)			; inittiallize the first parameter of nextMoves
+				jsr r5,nextMoves		; r4 = 1 if there is no next move , MovesArr = nextMoves
+				.blkw 1
+				.word 1 
+				
+				cmp r4,#1				; while there is a next move branch to "do"
+				bne do
+				
+				movb #377,(r0)			; if we didnt find and solution with max_size == 1 return [-1,*,*...]
+				jmp exitFS
+;-----------------------------------------------------------------------------------------------------------------------------------				
+	recFS:		mov r0,-(sp)			; push MovesArr
+				dec r1					; push size - 1 but don't change size 
+				mov r1,-(sp)		
+				inc r1					
+				jsr pc,findShortest		; MovesArr containe the moves thats leads to a triumph for a smaller problem
+										;or [-1.*,*...] if there is no solution 
+				mov (sp)+,(sp)+			; pop MovesArr address and (size-1) from stack
+				
+				cmpb (r0),#377			; if (r0) != -1 than MovesArr containe a serie of moves that leads to triumph
+				beq arrCreate
+				jmp exitFS
+				
+	arrCreate:	mov #0,r4				; r4 is the loop counter
+				mov r0,-(sp)			; save pointer to beggining of MovesArr
+	loopFS:		movb #1,(r0)+			; initiallize MovesArr = [1,1,1...,1,'@]
+				inc r4					
+				cmp r4,r1
+				blt loopFS
+				movb #'@,(r0)
+				mov (sp)+,r0    		; restore r0 = MovesArr 
+				
+	do2:		tst -(sp)				; allocate stack for score	
+				mov r0,r4				; r4 = MovesArr	
+				jsr pc,checkSol			; score == -1 ==> MovesArr don't leed to a triumph
+				mov (sp)+,r2			; r2 = score and pop score_slot from stack
+				cmp r2,#177777
+				beq checkN2
+				jmp exitFS 					; MovesArr leads to a triumph so return
+				
+										; check if next move leads to a triumph
+	checkN2:	mov 16(sp),arg1			; initiallize first argument of nextMoves to be MovesArr
+				mov 14(sp),arg2			; initiallize second input of nextMoves to be "size"
+				jsr r5,nextMoves		; r4 = 1 if there is no next move , MovesShort = nextMoves
+		arg1:	.blkw 1
+		arg2:	.blkw 1
+				cmp r4,#1				; while there is a next move branch to "do"
+				bne do2
+				
+				movb #377,(r0)			; if we didnt find and solution with size == "size" return [-1,*,*...]
+				jmp exitFS
+; --------------------------------------------------------------------------------------------------------------------------
+	; recuvering original register values and stack
+
+exitFS:			mov (sp)+,r5
+				mov (sp)+,r4
+				mov (sp)+,r2
+				mov (sp)+,r1
+				mov (sp)+,r0
+				rts pc
+; --------------------------------------------------------------------------------------------------------------------------
+
+
+ 
+ 
+ CurrScore:	.word 	0
+;==========================================================================================================================
+;	name :	 		findScore 
+
+;	params :		Board:  	the board itself is given in common area
+;					nRows:		the number of rows in the board	given in common area
+;					nCols:		the number of colons in the board given in common area
+;					size:		the max number of moves allowed given by stack
+
+;					MovesArr:	a pointer to a result array of bytes returned by stack
+
+;	description:	the procedure compute the path with the highest score that leads to a triumph and write it into MovesArr array				
+;--------------------------------------------------------------------------------------------------------------------------
+;	saving original register values and stack
+
+findScore:		movb #377,@4(sp)			; defualt value in case we wont find any solution
+rec_findScore:  mov r0,-(sp)
+				mov r1,-(sp)
+				mov r2,-(sp)
+				mov r3,-(sp)
+				mov r4,-(sp)
+				mov r5,-(sp)
+; --------------------------------------------------------------------------------------------------------------------------
+;size = 16(sp)
+;MovesArr = 18(sp)
+
+				mov 18(sp),r0			; r0 = MovesArr
+				mov 16(sp),r1			; r1 = size
+				cmp r1,#1				; size == 1 is stopping condition of the recursion
+				bne recFH
+										;check all combination of size == 1 ([1,@],[2,@],...,[6,@])
+				movb #1,-(sp)			; allocate space on the stack for the moves array	
+				movb #'@,1(sp)
+										
+	do3:		mov	sp,r4				; r4 = MovesArr
+				tst -(sp)				; allocate stack for score
+				jsr pc,checkSol			; score == -1 ==> MovesArr don't lead to a triumph
+				mov (sp)+,r2			; r2 = score and pop score_slot from stack
+				cmp r2,#177777
+				beq checkN3
+	
+				cmp r2, CurrScore			; check if we beat our current high score
+				blt checkN3
+				mov r2, CurrScore			; if we did update it
+				mov (sp), (r0)		;move the results to r0 (output array)
+				
+	checkN3:	mov sp,4(pc)			; inittiallize the first parameter of nextMoves
+				jsr r5,nextMoves		; r4 = 1 if there is no next move , MovesArr = nextMoves
+				.blkw 1
+				.word 1 
+				
+				cmp r4,#1				; while there is a next move branch to "do3"
+				bne do3
+				
+				;movb #377,(r0)			; if we didnt find and solution with max_size == 1 return [-1,*,*...]
+				tst (sp)+
+				jmp exitFH
+;-----------------------------------------------------------------------------------------------------------------------------------				
+	recFH:		mov r0,-(sp)			; push MovesArr
+				dec r1					; push size - 1 but don't change size 
+				mov r1,-(sp)		
+				inc r1					
+				jsr pc,rec_findScore		; MovesArr containe the moves thats leads to a triumph for a smaller problem
+										;or [-1.*,*...] if there is no solution 
+				mov (sp)+,(sp)+			; pop MovesArr address and (size-1) from stack
+
+				
+	HarrCreate:	mov r1, r4 				; mov to different register to save original value;
+				sub r1, sp				; allocate space on the stack for the new array
+				asr r4					; check if the size is even or odd
+				blo odd					; decrease sp enough for '@ at the end and on more time to make it even (if necessary)
+				dec sp
+	odd:		dec sp
+				
+				mov #0,r4				; r4 is the loop counter
+
+				mov sp, r2				; copy Stack_MovesArr starting point
+	loopFH:		movb #1,(r2)+			; initiallize Stack_MovesArr = [1,1,1...,1,'@]
+				inc r4					
+				cmp r4,r1
+				blt loopFH
+				movb #'@,(r2)
+				
+	do4:		mov sp,r4				; r4 = Stack_MovesArr	
+				tst -(sp)				; allocate stack for score	
+				jsr pc,checkSol			; score == -1 ==> MovesArr don't leed to a triumph
+				mov (sp)+,r2			; r2 = score and pop score_slot from stack
+				cmp r2,#177777
+				beq checkN4				; if solution doesnt lead to end try another one
+				
+
+				
+				cmp r2, CurrScore		; since solution lead to end check if we beat our current high score
+				ble checkN4
+				
+				mov r2, CurrScore			; update current high score
+				mov sp, r3					; a tmp to run on
+				mov r0, r4					; another tmp to run on
+				mov #0, r2				; r2 will be loop counter
+	copybest:	movb (r3)+, (r4)+		; copy from Stack_MovesArr to actual MovesArr
+				inc r2
+				cmp r2, r1;				; see if we already got to size of move array
+				ble copybest
+				
+										; check if next move leads to a triumph
+	checkN4:	mov sp,arg3			; initiallize first argument of nextMoves to be MovesArr
+				mov r1,arg4			; initiallize second input of nextMoves to be "size"
+				jsr r5,nextMoves		; r4 = 1 if there is no next move , MovesShort = nextMoves
+		arg3:	.blkw 1
+		arg4:	.blkw 1
+				cmp r4,#1				; while there is a next move branch to "do"
+				bne do4
+				
+				add r1, sp				; return the stack pointer to its original position
+				asr r1				; check if the size is even or odd
+				blo odd2
+				inc sp
+	odd2:		inc sp
+; --------------------------------------------------------------------------------------------------------------------------
+	; recuvering original register values and stack
+
+exitFH:			mov (sp)+,r5
+				mov (sp)+,r4
+				mov (sp)+,r3
+				mov (sp)+,r2
+				mov (sp)+,r1
+				mov (sp)+,r0
+				rts pc
+; --------------------------------------------------------------------------------------------------------------------------
+
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+			
+
+			
+			
+;==========================================================================================================================
+;	name :	 		makeMove 
+
+;	params :		Board:		the board itself is given in common area
+;					nRows:		the number of rows in the board	given in common area
+;					nCols:		the number of colons in the board given in common area
+;					currR:		keeps the current row on board given by stack
+;					currC:		keeps the current colon on board given by stack
+;					distance:	the number of squars we need to "slalom" on board given by stack
+
+;	description:	the procedure recives the number of step she needs to move forward 
+;					and update currR and currC to the new placment on board
+;==========================================================================================================================
+;	saving original register values
+
+makeMove:		mov r0,-(sp)
+				mov r3,-(sp)
+				mov r4,-(sp)			
+				mov r5,-(sp)
+;--------------------------------------------------------------------------------------------------------------------------
+; distance = 12(sp)
+; currC = 14(sp)
+; currR = 16(sp)
+
+				mov 12(sp),r3		;r3 is a register that keeps the distance we need to proceed
+
+move: 			cmp r3,#0			
+				ble exitMove		;if we finished to 'slalom' branche to "exitMove" else continue
+									;if |nRows - currR| is even then we need to move to the right or to the left otherwise
+				mov nRows,r5		;r5 = nRows - currR
+				sub 16(sp),r5		
+				clr r4				;insuring that we recive a corect answer with DIV
+				div #2,r4			;r5 = (r4,r5) % 2 = r5 % 2
+				cmp r5,#0
+				bne left
+						
+	right:		mov nCols,r0		;r0 = the distance to the end of the row
+				sub 14(sp),r0
+				cmp r3,r0			
+				bgt Ropt2
+
+		Ropt1:	add r3,14(sp)		;the distance to the end of the row is bigger than then distance we need to proceed
+				clr r3
+				jmp move
+			
+		Ropt2:	mov nCols,14(sp)		;the distance to the end of the row is smaller than then distance we need to proceed so we will go 1 row up 
+				dec 16(sp)
+				sub r0,r3
+				dec r3
+				jmp move
+			
+	left:		mov 14(sp),r0		;r0 = the distance to the end of the row
+				dec r0
+				cmp r3,r0			
+				bgt Lopt2
+			
+		Lopt1:	sub r3,14(sp)		;the distance to the end of the row is bigger than then distance we need to proceed
+				clr r3
+				jmp move
+			
+		Lopt2:	mov #1,14(sp)	;the distance to the end of the row is smaller than then distance we need to proceed so we will go 1 row up 
+				dec 16(sp)
+				sub r0,r3
+				dec r3
+				jmp move
+;--------------------------------------------------------------------------------------------------------------------------
+;	recuvering original register values and stack
+
+exitMove:		mov (sp)+,r5
+				mov (sp)+,r4
+				mov (sp)+,r3
+				mov (sp)+,r0
+				rts pc
+;--------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+;==========================================================================================================================
+;	name :	 		squareValue 
+
+;	params :		Board:  the board itself is given in common area
+;					nCols:	the number of colons in the board given in common area
+;					currR:	keeps the current row on board given by stack
+;					currC:	keeps the current colon on board given by stack
+
+;					r5:		the result is returned in r5
+
+;	description:	the procedure returns 'S/'L or the square values according to square value (0,50)octali
+;					in case the value is non of those then -1 will be returne
+;--------------------------------------------------------------------------------------------------------------------------
+;	saving original register values
+
+squareValue:	mov r1,-(sp)
+;--------------------------------------------------------------------------------------------------------------------------
+; currC = 4(sp)
+; currR = 6(sp)
+	
+				mov 6(sp),r1			; update r1 to point on corect char of board according to the placment on Board 
+				dec r1					; using 	r1 = Board + (currR - 1) * nCols + (currC - 1)
+				mul nCols,r1
+				add 4(sp),r1
+				dec r1
+				add #Board,r1
+				
+				cmpb (r1),#'S			; if (r1) = 'S return 'S in r5
+				bne	LTest
+				movb #'S,r5
+				jmp exitSV
+					
+	LTest:		cmpb (r1),#'L			; if (r1) = 'L return 'L in r5
+				bne numTest
+				movb #'L,r5
+				jmp exitSV
+					
+	numTest:	cmpb (r1),#50			; if 	0 =< (r1) <= 50 return the square value in r5 else branch to isInvalid
+				bhi isInvalid
+				movb (r1),r5 
+				jmp exitSV
+				
+	isInvalid:	mov #177777,r5			; otherwise return -1 in r5
+				jmp exitSV
+					
+;--------------------------------------------------------------------------------------------------------------------------
+;	recuvering original register values and stack
+
+exitSV:			mov (sp)+,r1
+				rts pc
+		
+;--------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+;==========================================================================================================================
+;	name :	 		checkBorad 
+
+;	params :		Board:  the board itself is given in common area
+;					nRows:	the number of rows in the board	given in common area
+;					nCols:	the number of colons in the board given in common area
+
+;					r4:		the result is returned in r4
+
+;	description:	the procedure return 0 if the board contain onley numbers 1-50 (octaly)
+;					or 'S\'L ascii values and retun 1 otherwise
+;--------------------------------------------------------------------------------------------------------------------------
+;	saving original register values and stack
+
+checkBoard:			mov r1,-(sp)
+					mov r5,-(sp)
+; --------------------------------------------------------------------------------------------------------------------------
+; currC = (sp)
+; currR = 2(sp)
+					mov nRows,-(sp)			; push currR = nRows 
+					mov #1,-(sp)			; push currC = 1 
+					clr r4					; board is legal unless we discover is not
+					mov nRows,r1			; r1 = nRows * nCols
+					mul nCols,r1
+	loopCB:			cmp r1,#0				; loop   r1 = nCols * nRows ; r1 > 0 ; r1--
+					ble exitCB
+					
+					
+	checkSquare:	jsr pc,squareValue		; put in r5 the square value of (currR,currC)
+					cmp r5,#177777
+					bne checkLast			; if current square is valid branch to checkLast else return 1 (non valid board) 
+					mov #1,r4
+					jmp exitCB
+										
+	checkLast:		cmp r1,#1				; if we are at last square check we don't have an 'S and continue checking
+					bne infLoopCheck		; in case we do have an 'S at last square then return 1 (non valid board)
+					cmpb r5,#'S
+					bne infLoopCheck
+					mov #1,r4
+					jmp exitCB
+					
+	infLoopCheck:	cmp r5,#'L				; if square != L continue to next square	
+					bne nextSquare
+					dec 2(sp)				; in case sqaure = L we will check if (currR-1,currC) != 'S
+					jsr pc,squareValue
+					inc 2(sp)				; restore currR (instead of currR - 1)
+					cmp r5,#'S
+					bne nextSquare
+					mov #1,r4				; in case we have a 'S uppon a 'L return 1 (non valid board)
+					jmp exitCB
+					
+	nextSquare:		mov #1,-(sp)			; push distance = 1 
+					jsr pc,makeMove			; slalom 1 square
+					tst (sp)+				; pop distance
+					
+					sob r1,loopCB			; end of loop
+
+
+; --------------------------------------------------------------------------------------------------------------------------
+	; recuvering original register values and stack
+
+exitCB:				cmp (sp)+,(sp)+			; pop currR and currC
+					mov (sp)+,r5
+					mov (sp)+,r1
+					rts pc
+; --------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+;==========================================================================================================================
+;	name :	 		checkSol 
+
+;	params :		Board:  	the board itself is given in common area
+;					nRows:		the number of rows in the board	given in common area
+;					nCols:		the number of colons in the board given in common area
+;					r4:			a pointer to an array of moves(bytes) to a potensial triumph
+
+;					score:		the total score of the serie of moves if it's a triumph or -1 if it's a lost. is returned by stack
+
+;	description:	the procedure compute the total score of the serie of moves if it's a triumph or -1 if it's a lost			
+;--------------------------------------------------------------------------------------------------------------------------
+;	saving original register values and stack
+
+checkSol:			mov r3,-(sp)
+					mov r5,-(sp)
+; --------------------------------------------------------------------------------------------------------------------------
+; currC = (sp)
+; currR = 2(sp)
+; score = 12(sp)
+					mov nRows,-(sp)			; push currR = nRows	
+					mov #1,-(sp)			; push currC = 1				
+					clr 12(sp)							
+	
+	status:			cmpb #'@,(r4)			; if we finished executing all moves branch to result	
+					beq result	
+					movb (r4),r3			; push distance = (r4) (distance to slalom)
+					mov r3,-(sp)
+					
+					inc r4					; make r4 point to the next move
+					jsr pc,makeMove			
+					tst (sp)+				; pop distance
+			
+											; check if we arrived to a num square , a snake square or a ladder or if we glitched out of Board and act respectively			
+		glitch:		jsr pc,squareValue		; r5 = square value				
+					cmp 2(sp),#1				; if we glitched from board we will have to be placed in a row that smaller than 1
+					bge S 					; if we glitched return -1
+					jmp errorCS
+					
+		S:			cmp r5,#'S 				; if square != 'S continue to L option 
+					bne L 
+					cmp 2(sp),nRows			; if we hit a snake at the lowest row return -1 
+					bne Sact 
+					jmp errorCS
+						
+			Sact:	inc 2(sp)				; handling the case of a legal snake 
+					jmp glitch 
+					
+		L:			cmp r5,#'L  			; if square != 'L continue to num option
+					bne num 		
+					cmp 2(sp),#1			; if we hit a ladder at the highest row return -1
+					bne Lact 
+					jmp errorCS
+						
+			Lact:	dec 2(sp) 				; handling the case of a legal ladder
+					jmp glitch 
+		
+		num:		add r5,12(sp)			; if we arrived here the only possible option is that we have hit a square containing a number  
+					jmp status	
+						
+											; the only failure possible at this stage is if we had execute all moves but didn't arrive to the final square 
+	result:			cmp 2(sp),#1			; if currR != 1 then we are located in an internal square    
+					bne errorCS		
+					bit nRows,#1			; if nRows % 2 == 0 branch to nRowEven
+					beq nRowEven			
+											; handling the case with odd number of rows
+		nRowOdd:	cmp (sp),nCols			; if currC != nCols then we are located in an internal square , return -1
+					bne errorCS
+					jmp exitCS
+											; handling the case with even number of rows
+		nRowEven:	cmp (sp),#1				; if currC != 1 then we have a success in an internal square , return -1
+					bne errorCS
+					jmp exitCS
+					
+		errorCS:	mov #177777,12(sp)
+; --------------------------------------------------------------------------------------------------------------------------
+	; recuvering original register values and stack
+
+exitCS:				mov (sp)+,(sp)+			; pop currC and currR
+					mov (sp)+,r5
+					mov (sp)+,r3
+					rts pc
+; --------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+;==========================================================================================================================
+;	name :	 		nextMoves 
+
+;	params :		Moves:  	pointer to an array of moves(bytes) is given inline
+;					numMoves:	size of Moves is given inline
+
+;					Moves:		update Moves to be the next move
+;					r4:			1 if all word were 6 (calculate nextMoves created a carry) and 0 otherwise
+
+;	description:	the procedure recives an array of moves and update it to the next move.
+;					it also return 1 if the next move is 1,1,...1 and 0 otherwise			
+;--------------------------------------------------------------------------------------------------------------------------
+;	saving original register values and stack
+
+nextMoves:		mov r0, -(sp)
+				mov r1, -(sp)
+				mov r2, -(sp)
+; --------------------------------------------------------------------------------------------------------------------------
+				mov (r5)+, r0		; r0 = pointer to Moves
+				mov (r5)+, r1		; r1 = size of Moves
+				
+	begin:		mov r1,r2 
+				add r0, r2
+									; sub #1, r2 ; (r2=r0+r1-1) get the adress of the move we want to work on now
+				cmpb #6, -(r2) 		; check if adding will result in overflow
+				beq next
+				movb (r2), -(sp)
+				add #1, (sp)
+				movb (sp)+, (r2)
+				mov #0, r4 			; if we got here it means we are done and need to return 0.
+				br exitNM
+				
+	next:		movb #1, (r2) 		; adding will cause overflow, set this move to 1 and then work on the next one			
+				sob r1, begin
+
+				mov #1, r4 			; if we have reached here it means that r1 was already 0 and we wrapped around, need to return 1.
+; --------------------------------------------------------------------------------------------------------------------------
+	; recuvering original register values and stack
+
+	exitNM:		mov (sp)+, r2
+				mov (sp)+, r1 
+				mov (sp)+, r0
+				rts r5 
+; --------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+

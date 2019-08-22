@@ -1,0 +1,11 @@
+Technion Computer Science Department -- PDP/11 Simulator Version (5.5) AA.
+--------------------------------------------------------------------------
+This program is property of  the  Technion  Computer  Science  Department.
+Permission  to use it is given only to students  enroled in courses taught
+at the Department.  Outside distribution and use is prohibited.
+--------------------------------------------------------------------------
+Memory range :  000000 - 077777
+
+@ @ @ @ @ 
+HALT  -  HALT  INSTRUCTION.
+@ Realy quit [y/n] ? Good Bye

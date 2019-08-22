@@ -1,0 +1,31 @@
+Please enter number of rows:
+3
+Please enter number of columns:
+4
+Please enter game duration in seconds and max number of moves:
+500 3
+Please enter the board:
+OBRORFORBAOR
+
+We are all set. Total time: 500 sec
+Max number of allowed moves: 3 moves
+Press Enter key when you are ready...
+
+Current Board:
+* B R *
+R F * R
+B A * R
+Moves:
+3 moves left, please enter your move:
+0 1 R
+
+Illegal move. Try again
+2 1 U
+
+Current Board:
+* B R *
+R X * R
+B * * R
+Final Moves: (2,1,U)
+Well done, you won!
+

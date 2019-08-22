@@ -1,0 +1,209 @@
+.=torg + 5000
+
+nCols:		.word 	5
+nRows:		.word 	3
+numMoves:	.word 	4
+
+Board:		.byte 	 2, 3, 'S, 'L, 0
+		.byte 	 5, 'L, 6, 'S, 6
+		.byte 	 1, 'L, 'S, 1, 'L
+.even
+MovesShort: .blkw 10.
+MovesScore: .blkw 10.
+
+; MovesShort = 1,3,'@
+; MovesScore = 4,2,2,5,'@
+---------------------------------------------------------------------------------------
+.=torg + 5000				
+
+nCols:		.word 	5
+nRows:		.word 	3
+numMoves:	.word 	1
+
+Board:		.byte 	 2, 3, 'S, 'L, 0
+		.byte 	 5, 'L, 6, 'S, 6
+		.byte 	 1, 'L, 'S, 1, 'L
+.even
+MovesShort: .blkw 10.
+MovesScore: .blkw 10.
+
+; MovesShort = [377,*,*...]
+; MovesScore = [377,*,*...]
+---------------------------------------------------------------------------------------
+.=torg + 5000
+
+nCols:		.word 	5
+nRows:		.word 	3
+numMoves:	.word 	2
+
+Board:		.byte 	 2, 3, 'S, 'L, 0
+		.byte 	 5, 'L, 6, 'S, 6
+		.byte 	 1, 'L, 'S, 1, 'L
+.even
+MovesShort: .blkw 10.
+MovesScore: .blkw 10.
+
+; MovesShort = 1,3,'@
+; MovesScore = 1,3,'@
+---------------------------------------------------------------------------------------
+.=torg + 5000					
+
+nCols:		.word 	5
+nRows:		.word 	3
+numMoves:	.word 	4
+
+Board:		.byte 	 2, 3, 'S, 'L, 0
+		.byte 	 5, 'L, 70, 'S, 6
+		.byte 	 1, 'L, 'S, 1, 'L
+.even
+MovesShort: .blkw 10.
+MovesScore: .blkw 10.
+
+; MovesShort = [377,*,*...]
+; MovesScore = [377,*,*...]
+---------------------------------------------------------------------------------------
+.=torg + 5000					
+
+nCols:		.word 	5
+nRows:		.word 	3
+numMoves:	.word 	4
+
+Board:		.byte 	 2, 3, 'S, 'L, 0
+		.byte 	 'k, 'L, 6, 'S, 6
+		.byte 	 1, 'L, 'S, 1, 'L
+.even
+MovesShort: .blkw 10.
+MovesScore: .blkw 10.
+
+; MovesShort = [377,*,*...]
+; MovesScore = [377,*,*...]
+---------------------------------------------------------------------------------------
+.=torg + 5000					
+
+nCols:		.word 	5
+nRows:		.word 	3
+numMoves:	.word 	4
+
+Board:		.byte 	 2, 'S, 'S, 'L, 0
+		.byte 	 5, 'L, 6, 'S, 6
+		.byte 	 1, 'L, 'S, 1, 'L
+.even
+MovesShort: .blkw 10.
+MovesScore: .blkw 10.
+
+; MovesShort = [377,*,*...]
+; MovesScore = [377,*,*...]
+--------------------------------------------------------------------------------------
+.=torg + 5000					
+
+nCols:		.word 	5
+nRows:		.word 	3
+numMoves:	.word 	4
+
+Board:		.byte 	 2, 3, 'S, 'L, 'S
+		.byte 	 5, 'L, 6, 'S, 6
+		.byte 	 1, 'L, 'S, 1, 'L
+.even
+MovesShort: .blkw 10.
+MovesScore: .blkw 10.
+
+; MovesShort = [377,*,*...]
+; MovesScore = [377,*,*...]
+---------------------------------------------------------------------------------------
+.=torg + 5000					
+
+nCols:		.word 	5
+nRows:		.word 	1
+numMoves:	.word 	4
+
+Board:		.byte 	 2, 3, 4, 5, 0
+.even
+
+MovesShort: .blkw 10.
+MovesScore: .blkw 10.
+
+; MovesShort = 4,'@
+; MovesScore = 1,1,1,1,'@
+---------------------------------------------------------------------------------------
+.=torg + 5000					
+
+nCols:		.word 	5
+nRows:		.word 	1
+numMoves:	.word 	1
+
+Board:		.byte 	 2, 3, 4, 5, 0
+.even
+
+MovesShort: .blkw 10.
+MovesScore: .blkw 10.
+
+; MovesShort = 4,'@
+; MovesScore = 4,'@
+---------------------------------------------------------------------------------------
+.=torg + 5000					
+
+nCols:		.word 	1
+nRows:		.word 	6
+numMoves:	.word 	5
+
+Board:		.byte 	 2
+		.byte 	 2
+		.byte 	 2
+		.byte 	 2
+		.byte 	 2
+		.byte 	 2
+.even
+
+MovesShort: .blkw 10.
+MovesScore: .blkw 10.
+
+; MovesShort = 5,'@
+; MovesScore = 1,1,1,1,1,'@
+---------------------------------------------------------------------------------------
+.=torg + 5000					
+
+nCols:		.word 	5
+nRows:		.word 	3
+numMoves:	.word 	1
+
+Board:		.byte 	 2, 3, 'S, 'L, 0
+		.byte 	 5, 'L, 6, 'S, 'L
+		.byte 	 1, 'L, 'S, 1, 'L
+.even
+MovesShort: .blkw 10.
+MovesScore: .blkw 10.
+
+; MovesShort = 4,'@
+; MovesScore = 4,'@ / 5,'@
+---------------------------------------------------------------------------------------
+.=torg + 5000					
+
+nCols:		.word 	2
+nRows:		.word 	1
+numMoves:	.word 	1
+
+Board:		.byte 	 2,5
+
+.even
+MovesShort: .blkw 10.
+MovesScore: .blkw 10.
+
+; MovesShort = 1,'@
+; MovesScore = 1,'@ 
+---------------------------------------------------------------------------------------
+.=torg + 5000					
+
+nCols:		.word 	1
+nRows:		.word 	2
+numMoves:	.word 	1
+
+Board:		.byte 	 5
+		.byte 	 7
+
+.even
+MovesShort: .blkw 10.
+MovesScore: .blkw 10.
+
+; MovesShort = 1,'@
+; MovesScore = 1,'@ 
+---------------------------------------------------------------------------------------

@@ -1,0 +1,62 @@
+Please enter number of rows:
+5
+Please enter number of columns:
+5
+Please enter game duration in seconds and max number of moves:
+400 4
+Please enter the board:
+AOOOOOOOBOORFOOOOOORBOOOO
+
+We are all set. Total time: 400 sec
+Max number of allowed moves: 4 moves
+Press Enter key when you are ready...
+
+Current Board:
+A * * * *
+* * * B *
+* R F * *
+* * * * R
+B * * * *
+Moves:
+4 moves left, please enter your move:
+0 0 D
+
+Current Board:
+* * * * *
+* * * B *
+* R F * *
+A * * * R
+B * * * *
+Moves: (0,0,D)
+3 moves left, please enter your move:
+3 0 R
+
+Current Board:
+* * * * *
+* * * B *
+* R F * *
+* * * A R
+B * * * *
+Moves: (0,0,D)->(3,0,R)
+2 moves left, please enter your move:
+3 3 U
+
+Current Board:
+* * * * *
+* * * B *
+* R F A *
+* * * * R
+B * * * *
+Moves: (0,0,D)->(3,0,R)->(3,3,U)
+1 moves left, please enter your move:
+2 3 L
+
+Current Board:
+* * * * *
+* * * B *
+* R X * *
+* * * * R
+B * * * *
+Final Moves: (0,0,D)->(3,0,R)->(3,3,U)->(2,3,L)
+Well done, you won!
+

@@ -1,0 +1,22 @@
+Please enter number of rows:
+5
+Please enter number of columns:
+5
+Please enter game duration in seconds and max number of moves:
+40 10
+Please enter the board:
+OBOOORROOROOFOOOOOOOOAORO
+
+We are all set. Total time: 40 sec
+Max number of allowed moves: 10 moves
+Press Enter key when you are ready...
+
+Current Board:
+* B * * *
+R R * * R
+* * F * *
+* * * * *
+* A * R *
+Moves:
+10 moves left, please enter your move:
+

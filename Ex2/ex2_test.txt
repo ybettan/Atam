@@ -1,0 +1,15 @@
+.=torg + 5000
+
+nCols: 	.word 5
+nRows: 	.word 3
+Board: 	.byte 2,  3, 'S, 'L,  0
+	.byte 5, 'L,  6, 'S,  6
+	.byte 1, 'L, 'S,  1, 'L
+
+Moves: 	.byte 4, 5, 4, '@
+
+; Outputs
+.even 
+Output:   .blkw 1
+Score:    .blkw 1
+numMoves: .blkw 1

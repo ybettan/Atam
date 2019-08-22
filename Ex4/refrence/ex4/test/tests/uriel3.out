@@ -1,0 +1,72 @@
+Please enter number of rows:
+3
+Please enter number of columns:
+4
+Please enter game duration in seconds and max number of moves:
+500 12
+Please enter the board:
+OBRORFORBAOR
+
+We are all set. Total time: 500 sec
+Max number of allowed moves: 12 moves
+Press Enter key when you are ready...
+
+Current Board:
+* B R *
+R F * R
+B A * R
+Moves:
+12 moves left, please enter your move:
+2 1 R
+
+Current Board:
+* B R *
+R F * R
+B * A R
+Moves: (2,1,R)
+11 moves left, please enter your move:
+2 2 R
+
+Illegal move. Try again
+2 2 L
+
+Current Board:
+* B R *
+R F * R
+B A * R
+Moves: (2,1,R)->(2,2,L)
+7 moves left, please enter your move:
+0 1 U
+
+Illegal move. Try again
+0 1 D
+
+Illegal move. Try again
+0 2 D
+
+Illegal move. Try again
+2 1 R
+
+Current Board:
+* B R *
+R F * R
+B * A R
+Moves: (2,1,R)->(2,2,L)->(2,1,R)
+3 moves left, please enter your move:
+2 2 U
+
+Current Board:
+* B R *
+R F A R
+B * * R
+Moves: (2,1,R)->(2,2,L)->(2,1,R)->(2,2,U)
+2 moves left, please enter your move:
+1 2 L
+
+Current Board:
+* B R *
+R X * R
+B * * R
+Final Moves: (2,1,R)->(2,2,L)->(2,1,R)->(2,2,U)->(1,2,L)
+Well done, you won!
+

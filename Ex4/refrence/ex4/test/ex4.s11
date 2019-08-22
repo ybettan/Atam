@@ -1,0 +1,798 @@
+tks = 177560	; define for keyBoard status.
+tkb = 177562	; define for keyBoard Buffer.
+tps = 177564	; define for printer status.
+tpb = 177566	; define for printer status.
+lcs = 177546	; define for clock.
+
+. = torg+1000
+
+
+
+main:	
+		mov pc, sp			; initialize the stack.
+		tst -(sp)			;
+		mov r0, -(sp)		; we dont kmow how and who called us, stack the registers.
+		mov r1, -(sp)
+		mov r2, -(sp)
+		mov r3, -(sp)
+		mov r4, -(sp)
+		mov r5, -(sp)
+		
+;;;;;;    Initialize Interrupt Vectors    ;;;;;;;;;;;;
+		
+		mov #putChar, @#64		;	Printer Interrupt Vector Initialization
+		mov #200, @#66			;	Priority=4
+		
+		mov #getChar, @#60		;	Keyboard Interrupt Vector Initialization
+		mov #200, @#62			;	Priority=4
+		
+		mov #clock,@#100		;	Clock Interrupt Vector Initialization
+		mov #300, @#102			;	Priority=6
+		clr @#lcs				;	Deactivate the Clock
+
+		
+		clr times_up			; initialize that the time is not up.
+		
+;;;;;;        User Interface               ;;;;;;;;;;;
+
+	mov #ask_nRows, -(sp)
+		jsr pc, printf			; printf("Please enter number of rows:\n");
+	mov #nRows, (sp)
+		jsr pc, scanf			; scanf("%d", nRows);
+		sub #60, nRows			; convert the ascii value of num to an int.		
+	mov #ask_nCols, (sp)
+		jsr pc, printf			; printf("Please enter number of columns:\n");	
+	mov #nCols, (sp)
+		jsr pc, scanf			
+		sub #60, nCols			; scanf("%d", nCols); convert to an int.
+	mov #ask_time, (sp)
+		jsr pc, printf			; printf("Please enter game duration in secondes and max number of moves:\n")
+	mov #Board_buffer, (sp)
+		jsr pc, scanf			; scanf("%d %d", time, maxLen);
+		jsr pc, timeMoveHandle	; this rutin sepates and calculates the tome and the max length.
+	mov #ask_board, (sp)		; printf("Please enter the board:\n")
+		jsr pc, printf
+	mov #Board_buffer, (sp)	
+		jsr pc, scanf			; scanf("%str", Board_buffer);
+		jsr pc, str2Board		; initialize the Board
+	mov #time_, (sp)			
+		jsr pc, printf			; printf("\n We are all set. Total time: ")
+	mov #total_time, (sp)		; printf("%str", total_time);
+		jsr pc, printf
+	mov #sec_, (sp)				; printf(" sec\n");
+		jsr pc, printf
+	mov #max_, (sp)				; printf("Max number of allowed moves: ")
+		jsr pc, printf
+	mov #maxLen_, (sp)			; printf("%str" maxLen); the amount of turns left in an octal string.
+		jsr pc, printf
+	mov #moves_, (sp)			; printf(" moves\n"); printf("Press Enter key when you are ready...\n")
+		jsr pc, printf
+	mov #Board_buffer, (sp)		; used to wait for the game to start.
+		jsr pc, scanf
+	clr Moves					; no moves done yet set it to zero.
+; r4 will be used to iterate over moves, inorder to	save leagle moves that will be apllied.
+	mov #Moves, r4				
+	mov #100, @#lcs				; the clock is on!
+	
+;========        start the game!      =========;		
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+start:		mov MaxLen, r0				;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; why??
+			mov #Current_, (sp)			; printf("Current Board:\n");
+				jsr pc, printf
+				jsr pc, printBoard		; jump to a rutin that converts the board in to chars and print it.
+			mov #Moves_, (sp)
+				jsr pc, printf			; printf("Moves ");
+			mov #Moves, (sp)			; Moves is an array that will help print all the moves that have been done.
+				jsr pc, printf			;
+			mov #end_line, (sp)
+				jsr pc, printf			; printf("\n");
+			mov #maxLen_, (sp)			
+				jsr pc, int2Str			; turn maxLen_ in to a string and print it.
+				jsr pc, printf
+			mov #left_, (sp)			; printf(" moves left, please enter your move:");
+				jsr pc, printf
+getMove:	mov #param, r2				; r2 points at param, will be used to insert the next move.
+			mov #Board_buffer, r1		; r1 points at the board buffer, 	
+			mov r1, (sp)				; will be used to get the moves from the user.
+				jsr pc, scanf
+				tst times_up			; check if the user ran out of time while scaning.
+				beq skip4				; the time was up 
+					mov #timeUp_, (sp)  ;
+					jsr pc, printf		; printf("Time's up. Game Over!");
+					jmp TheEnd
+skip4:		mov #end_line, (sp)			; printf("\n");
+				jsr pc, printf			; go down one line after scaning.
+			dec MaxLen					; we got a move if legal or not, decrease the amount of moves allowed.
+			movb (r1)+, r3				; r3=ascii value of the row
+			cmpb (r1)+, #40
+				bne Ill_mes				; there is a space bar between each param
+			sub #60, r3					; convert r3 to an int.
+			movb r3, (r2)+				; move the chosen row to param for movePiece
+			movb (r1)+, r3				; r3=ascii value of column
+			cmpb (r1)+, #40				; there is a space bar between each param
+				bne Ill_mes
+			sub #60, r3					; convert ascii value to int
+			movb r3, (r2)+				; move the given col to param for movePiece
+			movb (r1), (r2)				; move the direction to param for movePiece
+			clr (sp)					; clear the stack so movePiece can return.
+			jsr r5, movePiece
+	param:	.blkw 2
+			cmp (sp), param				; if the move wont really move the piece.
+				beq Ill_mes				; 	go to the part that deals with illegal moves.
+			cmp (sp), #-1				; check if the move was legale
+			bne leagleMove
+Ill_mes:			
+					mov #Illegal_, (sp)		; the move was Illegal ask for a new move.
+					jsr pc, printf		; printf("Illegal move. Try again\n");
+					tst MaxLen			; check if there are any moves left
+						beq movesLeft
+				clr (sp)
+				br 	getMove				; go back to the right scanf.
+leagleMove: mov param, -(sp)			; set the original location in the stack for swapLocs
+			jsr pc, swapLocs			; the locations were swaped.
+			clr (sp)+					; pop first locations from the stack
+			clr (sp)					; clr the stack for next param.
+			
+; copy the move that was made in to Moves
+			mov #param, r2
+			cmp r4, #Moves				; check if its the first move
+			beq	insert					; if it is we dont need the arrow.
+				movb #55, (r4)+			; the ascii value of '-'
+				movb #76, (r4)+			; the ascii value of '>'
+				br insert2				; 
+insert:		movb #40, (r4)+				; for the first move insert space.
+insert2:	movb #50, (r4)+				; insert the ascii value for '('
+			movb (r2)+, r1
+			add #60, r1					; r1 = '(row)'
+			movb r1, (r4)+				; insert the row
+			movb #54, (r4)+				; insert the ascii value for ','
+			movb (r2)+, r1
+			add #60, r1					; r1 has the ascii value of the column
+			movb r1, (r4)+				; insert the column
+			movb #54, (r4)+				; insert ','
+			movb (r2), (r4)+			; insert the direction.
+			movb #51, (r4)+				; insert ')'
+			movb #0, (r4)				; mark the new end of the string.
+; check if A is in the finish point
+			
+			mov #Finish, r0				; r0 points at finish
+			movb (r0)+, r1				; r1 contains the finish row
+			mul nCols, r1				; r1=finish[0]*nCols
+			movb (r0), r0				; r0 finish col
+			add r0, r1					;
+			add #Board, r1				; r1 = Board[row]+col of finish
+			cmpb (r1), #'A				; if A is at the finish spot.
+				bne movesLeft			
+; next section happens only if there is a winner.
+					mov #Current_, (sp) ; printf("Current Board:\n")
+					jsr pc, printf
+					jsr pc, printBoard  ; print the board.
+					mov #Final_M, (sp)  ; printf("Final Moves: ")
+					jsr pc, printf
+					mov #Moves, (sp)
+					jsr pc, printf		; print the Moves, (saved in format of (->)(row,col,direction) arrow doesn't apear on first.)
+					mov #end_line, (sp) ; printf("\n")
+					jsr pc, printf
+					mov #Well_, (sp)   	; printf("Well Done, you Won!\n");
+					jsr pc, printf
+				
+				jmp TheEnd
+	
+movesLeft:		tst MaxLen				; check if there are any moves left.
+				bne check_T				; if there are moves left check the time.
+					mov #noMoves_, (sp) ; printf("No more moves allowed. Game Over!\n");
+					jsr pc, printf
+					br TheEnd
+				
+	check_T: 	tst theTime				; check if the times count down reached zero.
+				beq prep_end
+					jmp start
+					
+	
+	prep_end:
+				mov #timeUp_, (sp)		; printf("Time's up. Game Over!");
+					jsr pc, printf
+
+TheEnd:		clr (sp)+
+			mov (sp)+, r5
+			mov (sp)+, r4
+			mov (sp)+, r3
+			mov (sp)+, r2
+			mov (sp)+, r1
+			mov (sp)+, r0
+	halt
+		
+		
+		
+		
+		
+		
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;       scanf		     ;;;;	
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;	
+; scanf receives an array in the stack and sets to it the input from the user.
+; it returns the array in the stack.
+;scanf sets tks to 101 inorder to allow the keyboard interupt the program.
+;next it waits for the user to hit enter.
+;during this time scanf checks the time and sets a flag in times_up if the time ended while 
+;waiting for the input.
+;once the user hit enter pEnter is set, hens we turn the interupt off.
+;r0 and r1 are used by the interupt vector.
+scanf:		
+			mov r0, -(sp)		; 
+			mov r1, -(sp)		;
+			mov 6(sp), r1		; r1 points at the array that will be scanned.
+			clr r0				; r0 is used to iterate over the string that scanf is going to use.
+			clr pEnter			; the user hasent enterd enter yet hens pEnter=0.
+			mov #101, @#tks		; interupt enable, read enable are on.
+				
+checkTheTime:	tst theTime				;
+				bne skip2				;
+					mov #1, times_up	; set 1 to times up to mark time ended while scaning.
+		skip2:	tst pEnter				; pEnter is 0 till enter was pressed.
+				beq checkTheTime	 	; if Enter was not pressed, we need to wait for the input.
+				mov #0, @#tks			; interupt enable, read enable are off.
+				mov #end_line, -(sp)	;
+				jsr pc, printf			; printf("\n");
+				clr (sp)+
+; we were debaiting if it is correct to add if(r0>50) return;				
+end_scanf:	mov #0, @#tks		; interupt enable, read enable are off.
+			mov (sp)+, r1		;
+			mov (sp)+, r0		;
+			rts pc				;
+			
+			
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;       getChar		     ;;;;	
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;	
+; handle interupt for the Keyboard
+;check if the input at tkb is backspace or enter, if it is, hndle it.
+;otherwise move the char to (r0), and print it to the screen.
+;if the input is backspace erase the last input be overwriting it withe space.
+;if it is enter, turn the pEnter flag on.
+;r1 is used to move the char around, and save it in the array r0 points at.
+;r0 is used to count the length og the input, we were debaiting if to add a line:
+;if (r0>50) return;
+getChar:	
+			cmpb @#tkb, #13.	; check if CR was entered.
+			bne BS_check		;
+				movb #0, (r1)	; end the string with '/0'
+				inc pEnter		; indicate that enter was pressed, pEnter!=0
+				rti
+BS_check:	cmpb @#tkb, #8.		; check if backspace was enterd
+			bne is_char
+				tst r0
+				beq scan_end			; if there was no prior input, were done here.
+					dec r0				; there is 1 input less
+					dec r1				; point r1 to 1 mem before.
+					jsr pc, print_wait	;
+					movb #10, @#tpb		; move the croser one back (backspace)
+					jsr pc, print_wait	;
+					movb #40, @#tpb		; print space instead.
+					jsr pc, print_wait	;
+					movb #10, @#tpb		; move the croser one back.
+			br scan_end					;
+
+is_char:	movb @#tkb, (r1)+			; move the new letter in to the array
+			jsr pc, print_wait			;
+			movb @#tkb, @#tpb			;
+			inc r0
+			
+scan_end:	inc @#tks					; read enable is on
+			rti
+			
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;       print_wait	     ;;;;	
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;			
+; this function will wait until the printer is ready.
+
+print_wait: tstb @#tps					;
+			bpl print_wait				;
+			rts pc
+		
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;       printf	         ;;;;	
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;		
+; printf recives a string in the stack and will print it
+; r0 is used to point at the array.
+printf:
+			mov #100, @#tps		; turn iterupt enable on
+			mov r0, -(sp)
+			mov 4(sp), r0		; r0 points to the string that will be printed.
+			mov (r0), @#tpb		; load the first char to be printed.
+	wait_1:	tstb (r0)			; r0 is increasd in the interup
+			bne wait_1			; loop until all the string is printed.
+			
+			mov #0, @#tps		; turn interupt enable off.
+			mov (sp)+, r0
+			rts pc
+	
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;       putChar	         ;;;;	
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;	
+;  handle interupt for the printer.	
+;the vector receives a char bt r0.
+;r0 is used to move a single char in to the printer,		
+putChar:	
+				inc r0				; set the r0 to point at the next char.
+				cmpb (r0), #0
+				beq skipLoad
+				movb (r0), @#tpb	; load a new char to the printers buffer.
+	skipLoad:	rti
+	
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;     	clock		     ;;;;	
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;	
+; clock interupt handler
+; theTime indicates the amount of interupts allowed till the end of the program.
+; therefor, each time the clock interups the game decrease it by one.
+
+clock:  	tst theRate
+				bne mid_sec				; if the counter finnished a second 
+				dec theTime				; decreas the time.
+				mov rate, theRate		; and start a new second.
+				br check_clk			; we are counting from 10 to 1, (include 10, without 0)
+mid_sec:	dec theRate					; in any case, decreas theRate
+check_clk:	tst theTime					; we gave the time the duration +1 hens once we hit zero the tome is up.
+				bne clock_end			; if the time ended stop the clock.
+				clr @#lcs				
+clock_end:	rti
+	
+	
+	
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;     timeMoveHandle      ;;;;	
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;		
+; timeMoveHandle revieves the duration and the max amount of moves for the game in the stack.
+; they are passed as a string. hens, timeMoveHandle will convert them to an integer and store 
+; them under the right lables.
+; in the given string, first will apear the time and then the max length of moves for the game.
+; therefor the time will be calculated first
+; the time can contain 1 and up to 4 digits.
+; r0 will point at the string that is located in the stack
+; r1 will be used to calculate the total integers.
+; r2 wil be used to calculate the value of 1 digit per iteration.
+; r3 will be used to insert at total_time a string with the total time.
+timeMoveHandle:	mov r0, -(sp)
+				mov r1, -(sp)
+				mov r2, -(sp)
+				mov r3, -(sp)
+				mov 12(sp), r0			; r0 points at the string.
+				clr r1					;
+				mov #total_time, r3		; r3 points at total_time
+				
+	calcTime:	clr r2
+				movb (r0), (r3)+
+				movb (r0)+, r2			;
+				sub #60 ,r2			    ; convert char to int.
+				asl r1
+				asl r1
+				asl r1
+				add r2, r1
+				cmpb (r0), #40			; check if the next char is space=ascii(40)
+				bne calcTime
+; we have the calculated amount of time. multiply with the rate and insert it in the time.
+				movb #0, (r3)+			; set 0 at the end of the string of total time.
+				inc r1					
+				mov r1, theTime			; theTime is the amount of seconds +1
+				
+; loop until we hit the max length
+	spaceLoop:	inc r0
+				cmpb (r0), #40
+				beq spaceLoop
+; we hit the max len, lets calculate it!
+				mov #maxLen_, r3		; save this for the intro message.
+				clr r1					; r1 is used to calc the total number.
+	len_loop:	clr r2
+				cmpb (r0), #40			; it was not clear if a space can be enterd after the end of the input.
+					beq end_len
+				movb (r0),  r2
+				movb (r0)+, (r3)+
+				sub #60, r2				; convert from char to int.
+				mul #10, r1				; r1*12, we want decimal//CHANGED TO OCTAL vlaue in octal
+				add r2, r1				; add the singels to the tens.
+				cmpb (r0), #0
+				bne len_loop
+; we calculated maxLen, lets insert it.
+	end_len:	mov r1, MaxLen
+				movb #0, (r3)
+; timeMoveHandle is done prep to return.
+				mov (sp)+, r3
+				mov (sp)+, r2
+				mov (sp)+, r1
+				mov (sp)+, r0
+				rts pc
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;     str2Board	         ;;;;	
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;		
+; str2Board recieves a string in the stack, the board and its dimentions in the comman
+; area. the function will convert the string in to the board.
+; in the function we will use:
+; r0 to iterate over the string
+; r1 to iterate over the board
+; r2 to count the row in the board.
+; r3 to count the column on the board.
+; r4 to point at finish lable.
+; the row and column are coumnted only to calculate the finish spot.
+str2Board:
+				mov r0, -(sp)
+				mov r1, -(sp)
+				mov r2, -(sp)
+				mov r3, -(sp)
+				mov r4, -(sp)
+				
+				mov 14(sp), r0				; r0 points at the string
+				mov #Board, r1				; r1 points at the Board
+				clr r2						; r2 will count the row
+				clr r3						; r3 will count the column
+				mov #Finish, r4				; r4 points at finish
+				
+	trans_Loop:		cmpb (r0), #'F			; if the current spot is F, save it in finish.
+					bne zeroCheck
+						movb #0, (r1)+			; set the finish point to zero, and inc r1.
+						movb r2, (r4)+			; we moved the row to finish		finish++=row;
+						movb r3, (r4)			; we moved the column to finish+1	finish=col;
+						br trans_end
+						
+						
+						
+	zeroCheck:		cmpb (r0), #'O			
+					bne simple_trans
+						movb #0, (r1)+			; set the spot on the board to zero.
+						br trans_end
+						
+						
+	simple_trans:	movb (r0), (r1)+			; simply transfer the piece to the board++
+	
+	trans_end:		inc r0						;	
+					tstb (r0)
+					beq end_str2Board			; if r1 points at 0 we got to the end of the string
+					inc r3						; increase the column
+					cmp r3, nCols
+					bne trans_Loop
+						clr r3					; col=0;
+						inc r2					; row++;
+						br trans_Loop
+		
+end_str2Board:	mov (sp)+, r4
+				mov (sp)+, r3
+				mov (sp)+, r2
+				mov (sp)+, r1
+				mov (sp)+, r0
+				rts pc
+		
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;       int2Str		     ;;;;	
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;		
+; int2str will recive a an integer in r0, the int can be 2 digits (0-77)(8).
+; int2str will convert the integer in to a string.
+; the string must be transferd in the stack
+; the number in the string is in base 8 octal.
+;we will decreas r0 bt 8 each time r0>=8 and add 1 to the ten value.
+;then we will copy the remainder to the singels.
+;last we will set 0 at the end of the string to mark its end.
+;r0 is recieved with the number in a octal value.
+;r1 is used to iterate over the string in the stack
+;r2 is used to calculate the tens digit
+int2Str:	mov r1, -(sp)
+			mov r2, -(sp)
+			mov 6(sp), r1			; r1 points at the array.
+			clr r2					; r2 will count how many times we subtracked 8
+			cmp r0, #10				; if the number is a one digit number,
+			blt singles				; jump over the tens section. this way the outcome wont have an extra digit (5=05)
+	tens:	sub #10, r0				;//CHANGED TO OCTAL
+			inc r2
+			cmp r0, #10
+			bge tens
+			add #60, r2				; r2 has the ascii value of the second digit
+			movb r2, (r1)+
+
+singles:	add #60, r0
+			movb r0, (r1)+
+			movb #0, (r1)			; mark the end of the string.
+			
+			mov (sp)+, r2
+			mov (sp)+, r1
+			rts pc
+			
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;       printBoard	     ;;;;	
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;		
+; printBoard will print the game board, it will set the ascii value of each spot.
+; r0 will iterate over Board buffer that will be used to print the lines of the board each time
+; one row at a time.
+; r1 is used to iterate over the board
+; r2 is used to save the privious piece from finish.
+; r3 points at the finish spot.
+; r4 is used to iterate over each row at a time.
+; r5 is used to check that we wont print out of the boards boundries.
+printBoard:
+				mov r0, -(sp)
+				mov r1, -(sp)
+				mov r2, -(sp)
+				mov r3, -(sp)
+				mov r4, -(sp)
+				mov r5, -(sp)
+				mov #Board, r1
+				clr r2					; calc the finish spot.
+				clr r3
+				mov #Finish, r2
+				movb (r2)+, r3
+				mul nCols, r3
+				movb (r2), r2
+				add r2, r3				; r3 points at the finish spot.
+				add #Board, r3			; r3 = Board+finish
+				cmpb (r3), #'A
+				bne skip5
+					movb #'X, (r3)
+					br print
+					
+	skip5:			movb (r3), r2			; r2= board[finish]
+					movb #'F, (r3)			; Board[finish]='F'
+					
+print:				clr r5					; r5 will point to the end of the board
+				clr r4					; r4 is used to iterate over the board.
+				mov nCols, r5
+				mul nRows, r5
+				add #Board, r5			; r5 points to the end of the board.
+				mov #Board_buffer, -(sp)
+strRowLoop:		mov #Board_buffer, r0			; sp and r0 point at board buffer, r0 is used to ittarate.	
+strColLoop:		cmpb (r1), #0
+				bne simple_print
+					movb #'*, (r0)+
+					br skip3
+simple_print:	movb (r1), (r0)+
+	skip3:		inc r1					; board buffer has the template for the current location.
+				movb #40, (r0)+			; add a space before the next spot.
+				inc r4					; advance to the next spot
+				cmp r4, nCols			; if (r4=nCols) start a new row
+				bne strColLoop			; else keep looping
+				dec r0					; we got to the end of the row,
+				movb #10., (r0)+		; insert /n
+				movb #13., (r0)+
+				movb #0, (r0)+			; mark the end of the string
+				jsr pc, printf			; print the row
+				clr r4					; r4=0 restart at a new row(had a bug here and Im happy I found it)
+				cmp r1, r5				; if we got to the end of the board were done,else keep looping.
+				bne strRowLoop
+
+				clr (sp)+				; pop board buffer from the stack
+				movb r2, (r3)			; set the finish spot back to what it was.
+				mov (sp)+, r5
+				mov (sp)+, r4
+				mov (sp)+, r3
+				mov (sp)+, r2
+				mov (sp)+, r1
+				mov (sp)+, r0
+				rts pc
+
+
+				
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;       movePiece         ;;;;	
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; movePiece recieves a location and a direction inline,
+; it recieves the board, nRows, nCols in the commen area
+; and it will return in the stack the location the piece will move to if the move will 
+; be taken.
+; if the move is Illegal the function will return -1 in the stack.
+	
+movePiece:	mov r0, -(sp)			;
+			mov r1, -(sp)			;
+			mov r2, -(sp)			;
+			mov r3, -(sp)			;
+			movb (r5)+, r0			; r0=row
+			mov r0, r3				; r3=row
+			mul nCols, r3			; r3=row*nCols
+			add #Board, r3			; r3=Board[row]
+			movb (r5)+, r1			; r1=column
+			add r1, r3				; r3=Board[row]+column
+			movb (r5)+, r2			; r2=direction
+			inc r5					; r5 has now the returning address.
+			cmp r0, nRows			;if(row<0 || row>nRows || column<0 || column>nCols){
+			bhis isIllegal			;	the move is illegale take care of it.
+			cmp r1, nCols			;	
+			bhis isIllegal			;
+; check if the given spot on the board can be moved.
+			cmpb (r3), #0			; if(board[row][column] == 0 || 
+			beq isIllegal			;    board[row][colum] == 'B'){
+			cmpb (r3), #'B			; its an illegale move.
+			beq isIllegal
+			br checkDR				; every thing loocks good start the direction.
+isIllegal:	jmp IllegalMove			;
+checkDR:	cmpb r2, #'R			;
+			bne checkDL				;
+;the direction is to the right 
+moveR:		inc r1					; column++
+			inc r3					; r3=Board[row]+column
+			cmp r1, nCols			; if (column==nCols) {
+			beq isIllegal			; the move is illegal }
+			cmpb (r3), #0			;
+			beq moveR				;
+			dec r1					;
+			jmp successMove			;
+;check if the direction is Left
+checkDL:	cmpb r2, #'L			;
+			bne checkDD				;
+;the direction is Left
+moveL:		dec r1					;
+			dec r3					;
+			cmp r1, #0				;
+			blt isIllegal			;
+			cmpb (r3), #0			;
+			beq moveL				;
+			inc r1					;
+			jmp successMove
+;check if the direction is Down			
+checkDD:	cmpb r2, #'D			;
+			bne checkDU				;
+;the direction is Down
+moveD:		inc r0					;	 
+			add nCols, r3			; r3=Board[row++]+column
+			cmp r0, nRows			;
+			beq IllegalMove			;
+			cmpb (r3), #0			;
+			beq moveD				;
+			dec r0					;
+			jmp successMove			;
+;check if the direction is Up			
+checkDU: 	cmpb r2, #'U			;
+			bne IllegalMove			;
+;the direction is down
+moveU:		dec r0					;
+			sub nCols, r3			;	 r3=Board[row--]+column
+			cmp r0, #0				;
+			blt IllegalMove			;
+			cmpb (r3), #0			;
+			beq moveU				;
+			inc r0					;
+			jmp successMove			;
+; the move was illegal:
+IllegalMove:	mov (sp)+, r3	;
+				mov (sp)+, r2	;
+				mov (sp)+, r1	;
+				mov (sp)+, r0	;
+trick:			mov #-1, 2(sp)	;
+				rts r5			;
+;the move is illegal r0=row,r1=column:
+successMove:	mov (sp)+, r3	;
+				mov (sp)+, r2	;
+				movb r0, 6(sp)	;
+				movb r1, 7(sp)	;
+				mov (sp)+, r1	;
+				mov (sp)+, r0	;
+				rts r5			;			
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;       swapLocs                 ;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;swapLocs is used to swap 2 locations on the Board.
+;it recieves the 2 locations in the stack and the Board in the commen area.
+;r1,r2,r3, will be used to calculate the address.
+;this function does not care what the Board has in these locations, or if
+;the given location is out of the board. CALL IT ONLY WITH LEAGLE PARAM
+
+swapLocs:	mov r3, -(sp)
+			mov r1, -(sp)
+			mov r2, -(sp)
+			movb 12(sp), r3
+			mul nCols, r3
+			movb 13(sp), r2
+			add r2,r3
+			add #Board, r3
+			movb 10(sp), r1
+			mul nCols, r1
+			movb 11(sp), r2
+			add r2,r1
+			add #Board, r1
+			movb (r3), -(sp)
+			movb (r1), (r3)
+			movb (sp)+, (r1)
+			mov (sp)+, r2
+			mov (sp)+, r1
+			mov (sp)+, r3
+			rts pc	
+				
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+; Board Game Variables
+; the max amount of moves allowed.
+MaxLen: .blkw 1
+; the width of the board.
+nCols:  .blkw 1
+; the length of the board.
+nRows:  .blkw 1
+; the finish spot. first byte is the row, second is the column.
+Finish: .blkw 1
+; the board needs up to 25 bytes, we decided to leave it on 200 because of the privious programs.
+Board:  .blkw 200	
+; we actualy need only 51 bytes, 51 words to be genarous.
+Board_buffer: .blkw 50			
+	
+; program flags and indicaturs.	
+; this flag will indicate if the time ended while waiting for an input from the user.
+times_up: .blkw 1
+; this flag will indicate that the user hit the enter button in scanf.
+pEnter:	  .blkw 1		
+; this flag will hold the amount of times the clock can interupt the program.
+; the time can be between 1-1000, the rate can be 200-100, max interupts = 1000x1000 = 1000000 which is more 
+; than we can calculate with one register. therefor theTime will count the time,and theRate will count interupts per sec.
+theTime:  .word 1000
+theRate:  .word 0						
+
+
+; Interface Messages.	
+ask_nRows: .ascii<Please enter number of rows:>	
+.byte 10., 13., 0
+.even
+ask_nCols: .ascii<Please enter number of columns:>	
+.byte 10., 13., 0
+.even
+ask_time: .ascii<Please enter game duration in seconds and max number of moves:>
+.byte 10., 13., 0
+.even
+ask_board: .ascii<Please enter the board:>
+.byte 10., 13., 0
+time_: .byte 10., 13.
+.ascii<We are all set. Total time: >
+.byte 0
+.even
+; total_time is the amount of time left in seconds we need:
+; 4 bytes for 4 digits, and one byte to mark the end of the string.
+; to keep it even and genarous 8 bytes is more then enough.
+total_time: .byte 0,0,0,0,0,0,0,0
+	
+sec_:	 .ascii< sec>
+.byte 10., 13., 0
+.even
+max_:	 .ascii<Max number of allowed moves: >
+		 .byte 0
+		 .even 
+maxLen_: .byte 0,0,0,0
+moves_:	 .ascii< moves>
+		 .byte 10., 13.
+		 .ascii<Press Enter key when you are ready...>
+.byte 10., 13., 0
+.even
+end_line: .byte 10., 13., 0
+.even
+Current_:
+.ascii<Current Board:>
+.byte 10., 13., 0
+.even
+Moves_:	  .ascii<Moves:>
+.byte 0
+.even
+Final_M: .ascii<Final Moves:>
+.byte 0
+.even
+Well_: .ascii<Well done, you won!>
+.byte 10., 13., 0
+.even
+;(R,C,D) = 7 bytes, + (->)(2) = 9... for 20 moves we need 70*7/2 words = 490/2 = 245 < 300
+Moves:	.blkw 300
+left_: .ascii< moves left, please enter your move:>
+.byte 10., 13., 0
+.even
+timeUp_: .ascii<Time's up. Game Over!>
+.byte 10., 13., 0
+.even
+noMoves_: .ascii<No more moves allowed. Game Over!>
+.byte 10., 13., 0
+.even
+Illegal_: .ascii<Illegal move. Try again>
+.byte 10., 13., 0
+.even
+
+rate: .word 1000
+

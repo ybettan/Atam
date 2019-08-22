@@ -1,0 +1,28 @@
+Please enter number of rows:
+3
+Please enter number of columns:
+4
+Please enter game duration in seconds and max number of moves:
+10 10
+Please enter the board:
+OBRORFORBAOR
+
+We are all set. Total time: 10 sec
+Max number of allowed moves: 10 moves
+Press Enter key when you are ready...
+
+Current Board:
+* B R *
+R F * R
+B A * R
+Moves:
+10 moves left, please enter your move:
+2 1 U
+
+Current Board:
+* B R *
+R X * R
+B * * R
+Final Moves: (2,1,U)
+Well done, you won!
+

@@ -1,0 +1,1041 @@
+Technion Computer Science Department -- PDP/11 X-Assembler Version (5.5) AA.
+
+
+	S O U R C E    F I L E    :    C:\Users\alon\Documents\atm\SIM.v5.5\ex4\test\execs\ex4.s11
+	==========================================================================================
+
+000000                             1     tks = 177560	; define for keyBoard status.
+000000                             2     tkb = 177562	; define for keyBoard Buffer.
+000000                             3     tps = 177564	; define for printer status.
+000000                             4     tpb = 177566	; define for printer status.
+000000                             5     lcs = 177546	; define for clock.
+                                   6     
+000000                             7     . = torg+1000
+                                   8     
+                                   9     
+                                  10     
+001000                            11     main:	
+001000   010706                   12     		mov pc, sp			; initialize the stack.
+001002   005746                   13     		tst -(sp)			;
+001004   010046                   14     		mov r0, -(sp)		; we dont kmow how and who called us, stack the registers.
+001006   010146                   15     		mov r1, -(sp)
+001010   010246                   16     		mov r2, -(sp)
+001012   010346                   17     		mov r3, -(sp)
+001014   010446                   18     		mov r4, -(sp)
+001016   010546                   19     		mov r5, -(sp)
+                                  20     		
+                                  21     ;;;;;;    Initialize Interrupt Vectors    ;;;;;;;;;;;;
+                                  22     		
+001020   012737 002410 000064     23     		mov #putChar, @#64		;	Printer Interrupt Vector Initialization
+001026   012737 000200 000066     24     		mov #200, @#66			;	Priority=4
+                                  25     		
+001034   012737 002212 000060     26     		mov #getChar, @#60		;	Keyboard Interrupt Vector Initialization
+001042   012737 000200 000062     27     		mov #200, @#62			;	Priority=4
+                                  28     		
+001050   012737 002426 000100     29     		mov #clock,@#100		;	Clock Interrupt Vector Initialization
+001056   012737 000300 000102     30     		mov #300, @#102			;	Priority=6
+001064   005037 177546            31     		clr @#lcs				;	Deactivate the Clock
+                                  32     
+                                  33     		
+001070   005067 003354            34     		clr times_up			; initialize that the time is not up.
+                                  35     		
+                                  36     ;;;;;;        User Interface               ;;;;;;;;;;;
+                                  37     
+001074   012746 004460            38     	mov #ask_nRows, -(sp)
+001100   004767 001246            39     		jsr pc, printf			; printf("Please enter number of rows:\n");
+001104   012716 003724            40     	mov #nRows, (sp)
+001110   004767 000774            41     		jsr pc, scanf			; scanf("%d", nRows);
+001114   162767 000060 002602     42     		sub #60, nRows			; convert the ascii value of num to an int.		
+001122   012716 004520            43     	mov #ask_nCols, (sp)
+001126   004767 001220            44     		jsr pc, printf			; printf("Please enter number of columns:\n");	
+001132   012716 003722            45     	mov #nCols, (sp)
+001136   004767 000746            46     		jsr pc, scanf			
+001142   162767 000060 002552     47     		sub #60, nCols			; scanf("%d", nCols); convert to an int.
+001150   012716 004562            48     	mov #ask_time, (sp)
+001154   004767 001172            49     		jsr pc, printf			; printf("Please enter game duration in secondes and max number of moves:\n")
+001160   012716 004330            50     	mov #Board_buffer, (sp)
+001164   004767 000720            51     		jsr pc, scanf			; scanf("%d %d", time, maxLen);
+001170   004767 001274            52     		jsr pc, timeMoveHandle	; this rutin sepates and calculates the tome and the max length.
+001174   012716 004664            53     	mov #ask_board, (sp)		; printf("Please enter the board:\n")
+001200   004767 001146            54     		jsr pc, printf
+001204   012716 004330            55     	mov #Board_buffer, (sp)	
+001210   004767 000674            56     		jsr pc, scanf			; scanf("%str", Board_buffer);
+001214   004767 001430            57     		jsr pc, str2Board		; initialize the Board
+001220   012716 004716            58     	mov #time_, (sp)			
+001224   004767 001122            59     		jsr pc, printf			; printf("\n We are all set. Total time: ")
+001230   012716 004756            60     	mov #total_time, (sp)		; printf("%str", total_time);
+001234   004767 001112            61     		jsr pc, printf
+001240   012716 004766            62     	mov #sec_, (sp)				; printf(" sec\n");
+001244   004767 001102            63     		jsr pc, printf
+001250   012716 004776            64     	mov #max_, (sp)				; printf("Max number of allowed moves: ")
+001254   004767 001072            65     		jsr pc, printf
+001260   012716 005034            66     	mov #maxLen_, (sp)			; printf("%str" maxLen); the amount of turns left in an octal string.
+001264   004767 001062            67     		jsr pc, printf
+001270   012716 005040            68     	mov #moves_, (sp)			; printf(" moves\n"); printf("Press Enter key when you are ready...\n")
+001274   004767 001052            69     		jsr pc, printf
+001300   012716 004330            70     	mov #Board_buffer, (sp)		; used to wait for the game to start.
+001304   004767 000600            71     		jsr pc, scanf
+001310   005067 003706            72     	clr Moves					; no moves done yet set it to zero.
+                                  73     ; r4 will be used to iterate over moves, inorder to	save leagle moves that will be apllied.
+001314   012704 005222            74     	mov #Moves, r4				
+001320   012737 000100 177546     75     	mov #100, @#lcs				; the clock is on!
+                                  76     	
+                                  77     ;========        start the game!      =========;		
+                                  78     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+001326   016700 002366            79     start:		mov MaxLen, r0				;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; why??
+001332   012716 005124            80     			mov #Current_, (sp)			; printf("Current Board:\n");
+001336   004767 001010            81     				jsr pc, printf
+001342   004767 001514            82     				jsr pc, printBoard		; jump to a rutin that converts the board in to chars and print it.
+001346   012716 005146            83     			mov #Moves_, (sp)
+001352   004767 000774            84     				jsr pc, printf			; printf("Moves ");
+001356   012716 005222            85     			mov #Moves, (sp)			; Moves is an array that will help print all the moves that have been done.
+001362   004767 000764            86     				jsr pc, printf			;
+001366   012716 005120            87     			mov #end_line, (sp)
+001372   004767 000754            88     				jsr pc, printf			; printf("\n");
+001376   012716 005034            89     			mov #maxLen_, (sp)			
+001402   004767 001372            90     				jsr pc, int2Str			; turn maxLen_ in to a string and print it.
+001406   004767 000740            91     				jsr pc, printf
+001412   012716 006022            92     			mov #left_, (sp)			; printf(" moves left, please enter your move:");
+001416   004767 000730            93     				jsr pc, printf
+001422   012702 001542            94     getMove:	mov #param, r2				; r2 points at param, will be used to insert the next move.
+001426   012701 004330            95     			mov #Board_buffer, r1		; r1 points at the board buffer, 	
+001432   010116                   96     			mov r1, (sp)				; will be used to get the moves from the user.
+001434   004767 000450            97     				jsr pc, scanf
+001440   005767 003004            98     				tst times_up			; check if the user ran out of time while scaning.
+001444   001406                   99     				beq skip4				; the time was up 
+001446   012716 006072           100     					mov #timeUp_, (sp)  ;
+001452   004767 000674           101     					jsr pc, printf		; printf("Time's up. Game Over!");
+001456   000167 000406           102     					jmp TheEnd
+001462   012716 005120           103     skip4:		mov #end_line, (sp)			; printf("\n");
+001466   004767 000660           104     				jsr pc, printf			; go down one line after scaning.
+001472   005367 002222           105     			dec MaxLen					; we got a move if legal or not, decrease the amount of moves allowed.
+001476   112103                  106     			movb (r1)+, r3				; r3=ascii value of the row
+001500   122127 000040           107     			cmpb (r1)+, #40
+001504   001026                  108     				bne Ill_mes				; there is a space bar between each param
+001506   162703 000060           109     			sub #60, r3					; convert r3 to an int.
+001512   110322                  110     			movb r3, (r2)+				; move the chosen row to param for movePiece
+001514   112103                  111     			movb (r1)+, r3				; r3=ascii value of column
+001516   122127 000040           112     			cmpb (r1)+, #40				; there is a space bar between each param
+001522   001017                  113     				bne Ill_mes
+001524   162703 000060           114     			sub #60, r3					; convert ascii value to int
+001530   110322                  115     			movb r3, (r2)+				; move the given col to param for movePiece
+001532   111112                  116     			movb (r1), (r2)				; move the direction to param for movePiece
+001534   005016                  117     			clr (sp)					; clear the stack so movePiece can return.
+001536   004567 001546           118     			jsr r5, movePiece
+001542   000000 000000           119     	param:	.blkw 2
+001546   021667 177770           120     			cmp (sp), param				; if the move wont really move the piece.
+001552   001403                  121     				beq Ill_mes				; 	go to the part that deals with illegal moves.
+001554   021627 177777           122     			cmp (sp), #-1				; check if the move was legale
+001560   001011                  123     			bne leagleMove
+001562                           124     Ill_mes:			
+001562   012716 006166           125     					mov #Illegal_, (sp)		; the move was Illegal ask for a new move.
+001566   004767 000560           126     					jsr pc, printf		; printf("Illegal move. Try again\n");
+001572   005767 002122           127     					tst MaxLen			; check if there are any moves left
+001576   001513                  128     						beq movesLeft
+001600   005016                  129     				clr (sp)
+001602   000707                  130     				br 	getMove				; go back to the right scanf.
+001604   016746 177732           131     leagleMove: mov param, -(sp)			; set the original location in the stack for swapLocs
+001610   004767 002014           132     			jsr pc, swapLocs			; the locations were swaped.
+001614   005026                  133     			clr (sp)+					; pop first locations from the stack
+001616   005016                  134     			clr (sp)					; clr the stack for next param.
+                                 135     			
+                                 136     ; copy the move that was made in to Moves
+001620   012702 001542           137     			mov #param, r2
+001624   020427 005222           138     			cmp r4, #Moves				; check if its the first move
+001630   001405                  139     			beq	insert					; if it is we dont need the arrow.
+001632   112724 000055           140     				movb #55, (r4)+			; the ascii value of '-'
+001636   112724 000076           141     				movb #76, (r4)+			; the ascii value of '>'
+001642   000402                  142     				br insert2				; 
+001644   112724 000040           143     insert:		movb #40, (r4)+				; for the first move insert space.
+001650   112724 000050           144     insert2:	movb #50, (r4)+				; insert the ascii value for '('
+001654   112201                  145     			movb (r2)+, r1
+001656   062701 000060           146     			add #60, r1					; r1 = '(row)'
+001662   110124                  147     			movb r1, (r4)+				; insert the row
+001664   112724 000054           148     			movb #54, (r4)+				; insert the ascii value for ','
+001670   112201                  149     			movb (r2)+, r1
+001672   062701 000060           150     			add #60, r1					; r1 has the ascii value of the column
+001676   110124                  151     			movb r1, (r4)+				; insert the column
+001700   112724 000054           152     			movb #54, (r4)+				; insert ','
+001704   111224                  153     			movb (r2), (r4)+			; insert the direction.
+001706   112724 000051           154     			movb #51, (r4)+				; insert ')'
+001712   112714 000000           155     			movb #0, (r4)				; mark the new end of the string.
+                                 156     ; check if A is in the finish point
+                                 157     			
+001716   012700 003726           158     			mov #Finish, r0				; r0 points at finish
+001722   112001                  159     			movb (r0)+, r1				; r1 contains the finish row
+001724   070167 001772           160     			mul nCols, r1				; r1=finish[0]*nCols
+001730   111000                  161     			movb (r0), r0				; r0 finish col
+001732   060001                  162     			add r0, r1					;
+001734   062701 003730           163     			add #Board, r1				; r1 = Board[row]+col of finish
+001740   121127 000101           164     			cmpb (r1), #'A				; if A is at the finish spot.
+001744   001030                  165     				bne movesLeft			
+                                 166     ; next section happens only if there is a winner.
+001746   012716 005124           167     					mov #Current_, (sp) ; printf("Current Board:\n")
+001752   004767 000374           168     					jsr pc, printf
+001756   004767 001100           169     					jsr pc, printBoard  ; print the board.
+001762   012716 005156           170     					mov #Final_M, (sp)  ; printf("Final Moves: ")
+001766   004767 000360           171     					jsr pc, printf
+001772   012716 005222           172     					mov #Moves, (sp)
+001776   004767 000350           173     					jsr pc, printf		; print the Moves, (saved in format of (->)(row,col,direction) arrow doesn't apear on first.)
+002002   012716 005120           174     					mov #end_line, (sp) ; printf("\n")
+002006   004767 000340           175     					jsr pc, printf
+002012   012716 005174           176     					mov #Well_, (sp)   	; printf("Well Done, you Won!\n");
+002016   004767 000330           177     					jsr pc, printf
+                                 178     				
+002022   000167 000042           179     				jmp TheEnd
+                                 180     	
+002026   005767 001666           181     movesLeft:		tst MaxLen				; check if there are any moves left.
+002032   001005                  182     				bne check_T				; if there are moves left check the time.
+002034   012716 006122           183     					mov #noMoves_, (sp) ; printf("No more moves allowed. Game Over!\n");
+002040   004767 000306           184     					jsr pc, printf
+002044   000411                  185     					br TheEnd
+                                 186     				
+002046   005767 002402           187     	check_T: 	tst theTime				; check if the times count down reached zero.
+002052   001402                  188     				beq prep_end
+002054   000167 177246           189     					jmp start
+                                 190     					
+                                 191     	
+002060                           192     	prep_end:
+002060   012716 006072           193     				mov #timeUp_, (sp)		; printf("Time's up. Game Over!");
+002064   004767 000262           194     					jsr pc, printf
+                                 195     
+002070   005026                  196     TheEnd:		clr (sp)+
+002072   012605                  197     			mov (sp)+, r5
+002074   012604                  198     			mov (sp)+, r4
+002076   012603                  199     			mov (sp)+, r3
+002100   012602                  200     			mov (sp)+, r2
+002102   012601                  201     			mov (sp)+, r1
+002104   012600                  202     			mov (sp)+, r0
+002106   000000                  203     	halt
+                                 204     		
+                                 205     		
+                                 206     		
+                                 207     		
+                                 208     		
+                                 209     		
+                                 210     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                                 211     ;;;;       scanf		     ;;;;	
+                                 212     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;	
+                                 213     ; scanf receives an array in the stack and sets to it the input from the user.
+                                 214     ; it returns the array in the stack.
+                                 215     ;scanf sets tks to 101 inorder to allow the keyboard interupt the program.
+                                 216     ;next it waits for the user to hit enter.
+                                 217     ;during this time scanf checks the time and sets a flag in times_up if the time ended while 
+                                 218     ;waiting for the input.
+                                 219     ;once the user hit enter pEnter is set, hens we turn the interupt off.
+                                 220     ;r0 and r1 are used by the interupt vector.
+002110                           221     scanf:		
+002110   010046                  222     			mov r0, -(sp)		; 
+002112   010146                  223     			mov r1, -(sp)		;
+002114   016601 000006           224     			mov 6(sp), r1		; r1 points at the array that will be scanned.
+002120   005000                  225     			clr r0				; r0 is used to iterate over the string that scanf is going to use.
+002122   005067 002324           226     			clr pEnter			; the user hasent enterd enter yet hens pEnter=0.
+002126   012737 000101 177560    227     			mov #101, @#tks		; interupt enable, read enable are on.
+                                 228     				
+002134   005767 002314           229     checkTheTime:	tst theTime				;
+002140   001003                  230     				bne skip2				;
+002142   012767 000001 002300    231     					mov #1, times_up	; set 1 to times up to mark time ended while scaning.
+002150   005767 002276           232     		skip2:	tst pEnter				; pEnter is 0 till enter was pressed.
+002154   001767                  233     				beq checkTheTime	 	; if Enter was not pressed, we need to wait for the input.
+002156   012737 000000 177560    234     				mov #0, @#tks			; interupt enable, read enable are off.
+002164   012746 005120           235     				mov #end_line, -(sp)	;
+002170   004767 000156           236     				jsr pc, printf			; printf("\n");
+002174   005026                  237     				clr (sp)+
+                                 238     ; we were debaiting if it is correct to add if(r0>50) return;				
+002176   012737 000000 177560    239     end_scanf:	mov #0, @#tks		; interupt enable, read enable are off.
+002204   012601                  240     			mov (sp)+, r1		;
+002206   012600                  241     			mov (sp)+, r0		;
+002210   000207                  242     			rts pc				;
+                                 243     			
+                                 244     			
+                                 245     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                                 246     ;;;;       getChar		     ;;;;	
+                                 247     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;	
+                                 248     ; handle interupt for the Keyboard
+                                 249     ;check if the input at tkb is backspace or enter, if it is, hndle it.
+                                 250     ;otherwise move the char to (r0), and print it to the screen.
+                                 251     ;if the input is backspace erase the last input be overwriting it withe space.
+                                 252     ;if it is enter, turn the pEnter flag on.
+                                 253     ;r1 is used to move the char around, and save it in the array r0 points at.
+                                 254     ;r0 is used to count the length og the input, we were debaiting if to add a line:
+                                 255     ;if (r0>50) return;
+002212                           256     getChar:	
+002212   123727 177562 000015    257     			cmpb @#tkb, #13.	; check if CR was entered.
+002220   001005                  258     			bne BS_check		;
+002222   112711 000000           259     				movb #0, (r1)	; end the string with '/0'
+002226   005267 002220           260     				inc pEnter		; indicate that enter was pressed, pEnter!=0
+002232   000002                  261     				rti
+002234   123727 177562 000010    262     BS_check:	cmpb @#tkb, #8.		; check if backspace was enterd
+002242   001024                  263     			bne is_char
+002244   005700                  264     				tst r0
+002246   001432                  265     				beq scan_end			; if there was no prior input, were done here.
+002250   005300                  266     					dec r0				; there is 1 input less
+002252   005301                  267     					dec r1				; point r1 to 1 mem before.
+002254   004767 000062           268     					jsr pc, print_wait	;
+002260   112737 000010 177566    269     					movb #10, @#tpb		; move the croser one back (backspace)
+002266   004767 000050           270     					jsr pc, print_wait	;
+002272   112737 000040 177566    271     					movb #40, @#tpb		; print space instead.
+002300   004767 000036           272     					jsr pc, print_wait	;
+002304   112737 000010 177566    273     					movb #10, @#tpb		; move the croser one back.
+002312   000410                  274     			br scan_end					;
+                                 275     
+002314   113721 177562           276     is_char:	movb @#tkb, (r1)+			; move the new letter in to the array
+002320   004767 000016           277     			jsr pc, print_wait			;
+002324   113737 177562 177566    278     			movb @#tkb, @#tpb			;
+002332   005200                  279     			inc r0
+                                 280     			
+002334   005237 177560           281     scan_end:	inc @#tks					; read enable is on
+002340   000002                  282     			rti
+                                 283     			
+                                 284     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                                 285     ;;;;       print_wait	     ;;;;	
+                                 286     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;			
+                                 287     ; this function will wait until the printer is ready.
+                                 288     
+002342   105737 177564           289     print_wait: tstb @#tps					;
+002346   100375                  290     			bpl print_wait				;
+002350   000207                  291     			rts pc
+                                 292     		
+                                 293     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                                 294     ;;;;       printf	         ;;;;	
+                                 295     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;		
+                                 296     ; printf recives a string in the stack and will print it
+                                 297     ; r0 is used to point at the array.
+002352                           298     printf:
+002352   012737 000100 177564    299     			mov #100, @#tps		; turn iterupt enable on
+002360   010046                  300     			mov r0, -(sp)
+002362   016600 000004           301     			mov 4(sp), r0		; r0 points to the string that will be printed.
+002366   011037 177566           302     			mov (r0), @#tpb		; load the first char to be printed.
+002372   105710                  303     	wait_1:	tstb (r0)			; r0 is increasd in the interup
+002374   001376                  304     			bne wait_1			; loop until all the string is printed.
+                                 305     			
+002376   012737 000000 177564    306     			mov #0, @#tps		; turn interupt enable off.
+002404   012600                  307     			mov (sp)+, r0
+002406   000207                  308     			rts pc
+                                 309     	
+                                 310     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                                 311     ;;;;       putChar	         ;;;;	
+                                 312     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;	
+                                 313     ;  handle interupt for the printer.	
+                                 314     ;the vector receives a char bt r0.
+                                 315     ;r0 is used to move a single char in to the printer,		
+002410                           316     putChar:	
+002410   005200                  317     				inc r0				; set the r0 to point at the next char.
+002412   121027 000000           318     				cmpb (r0), #0
+002416   001402                  319     				beq skipLoad
+002420   111037 177566           320     				movb (r0), @#tpb	; load a new char to the printers buffer.
+002424   000002                  321     	skipLoad:	rti
+                                 322     	
+                                 323     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                                 324     ;;;;     	clock		     ;;;;	
+                                 325     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;	
+                                 326     ; clock interupt handler
+                                 327     ; theTime indicates the amount of interupts allowed till the end of the program.
+                                 328     ; therefor, each time the clock interups the game decrease it by one.
+                                 329     
+002426   005767 002024           330     clock:  	tst theRate
+002432   001006                  331     				bne mid_sec				; if the counter finnished a second 
+002434   005367 002014           332     				dec theTime				; decreas the time.
+002440   016767 003554 002010    333     				mov rate, theRate		; and start a new second.
+002446   000402                  334     				br check_clk			; we are counting from 10 to 1, (include 10, without 0)
+002450   005367 002002           335     mid_sec:	dec theRate					; in any case, decreas theRate
+002454   005767 001774           336     check_clk:	tst theTime					; we gave the time the duration +1 hens once we hit zero the tome is up.
+002460   001002                  337     				bne clock_end			; if the time ended stop the clock.
+002462   005037 177546           338     				clr @#lcs				
+002466   000002                  339     clock_end:	rti
+                                 340     	
+                                 341     	
+                                 342     	
+                                 343     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                                 344     ;;;;     timeMoveHandle      ;;;;	
+                                 345     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;		
+                                 346     ; timeMoveHandle revieves the duration and the max amount of moves for the game in the stack.
+                                 347     ; they are passed as a string. hens, timeMoveHandle will convert them to an integer and store 
+                                 348     ; them under the right lables.
+                                 349     ; in the given string, first will apear the time and then the max length of moves for the game.
+                                 350     ; therefor the time will be calculated first
+                                 351     ; the time can contain 1 and up to 4 digits.
+                                 352     ; r0 will point at the string that is located in the stack
+                                 353     ; r1 will be used to calculate the total integers.
+                                 354     ; r2 wil be used to calculate the value of 1 digit per iteration.
+                                 355     ; r3 will be used to insert at total_time a string with the total time.
+002470   010046                  356     timeMoveHandle:	mov r0, -(sp)
+002472   010146                  357     				mov r1, -(sp)
+002474   010246                  358     				mov r2, -(sp)
+002476   010346                  359     				mov r3, -(sp)
+002500   016600 000012           360     				mov 12(sp), r0			; r0 points at the string.
+002504   005001                  361     				clr r1					;
+002506   012703 004756           362     				mov #total_time, r3		; r3 points at total_time
+                                 363     				
+002512   005002                  364     	calcTime:	clr r2
+002514   111023                  365     				movb (r0), (r3)+
+002516   112002                  366     				movb (r0)+, r2			;
+002520   162702 000060           367     				sub #60 ,r2			    ; convert char to int.
+002524   006301                  368     				asl r1
+002526   006301                  369     				asl r1
+002530   006301                  370     				asl r1
+002532   060201                  371     				add r2, r1
+002534   121027 000040           372     				cmpb (r0), #40			; check if the next char is space=ascii(40)
+002540   001364                  373     				bne calcTime
+                                 374     ; we have the calculated amount of time. multiply with the rate and insert it in the time.
+002542   112723 000000           375     				movb #0, (r3)+			; set 0 at the end of the string of total time.
+002546   005201                  376     				inc r1					
+002550   010167 001700           377     				mov r1, theTime			; theTime is the amount of seconds +1
+                                 378     				
+                                 379     ; loop until we hit the max length
+002554   005200                  380     	spaceLoop:	inc r0
+002556   121027 000040           381     				cmpb (r0), #40
+002562   001774                  382     				beq spaceLoop
+                                 383     ; we hit the max len, lets calculate it!
+002564   012703 005034           384     				mov #maxLen_, r3		; save this for the intro message.
+002570   005001                  385     				clr r1					; r1 is used to calc the total number.
+002572   005002                  386     	len_loop:	clr r2
+002574   121027 000040           387     				cmpb (r0), #40			; it was not clear if a space can be enterd after the end of the input.
+002600   001412                  388     					beq end_len
+002602   111002                  389     				movb (r0),  r2
+002604   112023                  390     				movb (r0)+, (r3)+
+002606   162702 000060           391     				sub #60, r2				; convert from char to int.
+002612   070127 000010           392     				mul #10, r1				; r1*12, we want decimal//CHANGED TO OCTAL vlaue in octal
+002616   060201                  393     				add r2, r1				; add the singels to the tens.
+002620   121027 000000           394     				cmpb (r0), #0
+002624   001362                  395     				bne len_loop
+                                 396     ; we calculated maxLen, lets insert it.
+002626   010167 001066           397     	end_len:	mov r1, MaxLen
+002632   112713 000000           398     				movb #0, (r3)
+                                 399     ; timeMoveHandle is done prep to return.
+002636   012603                  400     				mov (sp)+, r3
+002640   012602                  401     				mov (sp)+, r2
+002642   012601                  402     				mov (sp)+, r1
+002644   012600                  403     				mov (sp)+, r0
+002646   000207                  404     				rts pc
+                                 405     
+                                 406     
+                                 407     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                                 408     ;;;;     str2Board	         ;;;;	
+                                 409     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;		
+                                 410     ; str2Board recieves a string in the stack, the board and its dimentions in the comman
+                                 411     ; area. the function will convert the string in to the board.
+                                 412     ; in the function we will use:
+                                 413     ; r0 to iterate over the string
+                                 414     ; r1 to iterate over the board
+                                 415     ; r2 to count the row in the board.
+                                 416     ; r3 to count the column on the board.
+                                 417     ; r4 to point at finish lable.
+                                 418     ; the row and column are coumnted only to calculate the finish spot.
+002650                           419     str2Board:
+002650   010046                  420     				mov r0, -(sp)
+002652   010146                  421     				mov r1, -(sp)
+002654   010246                  422     				mov r2, -(sp)
+002656   010346                  423     				mov r3, -(sp)
+002660   010446                  424     				mov r4, -(sp)
+                                 425     				
+002662   016600 000014           426     				mov 14(sp), r0				; r0 points at the string
+002666   012701 003730           427     				mov #Board, r1				; r1 points at the Board
+002672   005002                  428     				clr r2						; r2 will count the row
+002674   005003                  429     				clr r3						; r3 will count the column
+002676   012704 003726           430     				mov #Finish, r4				; r4 points at finish
+                                 431     				
+002702   121027 000106           432     	trans_Loop:		cmpb (r0), #'F			; if the current spot is F, save it in finish.
+002706   001005                  433     					bne zeroCheck
+002710   112721 000000           434     						movb #0, (r1)+			; set the finish point to zero, and inc r1.
+002714   110224                  435     						movb r2, (r4)+			; we moved the row to finish		finish++=row;
+002716   110314                  436     						movb r3, (r4)			; we moved the column to finish+1	finish=col;
+002720   000407                  437     						br trans_end
+                                 438     						
+                                 439     						
+                                 440     						
+002722   121027 000117           441     	zeroCheck:		cmpb (r0), #'O			
+002726   001003                  442     					bne simple_trans
+002730   112721 000000           443     						movb #0, (r1)+			; set the spot on the board to zero.
+002734   000401                  444     						br trans_end
+                                 445     						
+                                 446     						
+002736   111021                  447     	simple_trans:	movb (r0), (r1)+			; simply transfer the piece to the board++
+                                 448     	
+002740   005200                  449     	trans_end:		inc r0						;	
+002742   105710                  450     					tstb (r0)
+002744   001407                  451     					beq end_str2Board			; if r1 points at 0 we got to the end of the string
+002746   005203                  452     					inc r3						; increase the column
+002750   020367 000746           453     					cmp r3, nCols
+002754   001352                  454     					bne trans_Loop
+002756   005003                  455     						clr r3					; col=0;
+002760   005202                  456     						inc r2					; row++;
+002762   000747                  457     						br trans_Loop
+                                 458     		
+002764   012604                  459     end_str2Board:	mov (sp)+, r4
+002766   012603                  460     				mov (sp)+, r3
+002770   012602                  461     				mov (sp)+, r2
+002772   012601                  462     				mov (sp)+, r1
+002774   012600                  463     				mov (sp)+, r0
+002776   000207                  464     				rts pc
+                                 465     		
+                                 466     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                                 467     ;;;;       int2Str		     ;;;;	
+                                 468     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;		
+                                 469     ; int2str will recive a an integer in r0, the int can be 2 digits (0-77)(8).
+                                 470     ; int2str will convert the integer in to a string.
+                                 471     ; the string must be transferd in the stack
+                                 472     ; the number in the string is in base 8 octal.
+                                 473     ;we will decreas r0 bt 8 each time r0>=8 and add 1 to the ten value.
+                                 474     ;then we will copy the remainder to the singels.
+                                 475     ;last we will set 0 at the end of the string to mark its end.
+                                 476     ;r0 is recieved with the number in a octal value.
+                                 477     ;r1 is used to iterate over the string in the stack
+                                 478     ;r2 is used to calculate the tens digit
+003000   010146                  479     int2Str:	mov r1, -(sp)
+003002   010246                  480     			mov r2, -(sp)
+003004   016601 000006           481     			mov 6(sp), r1			; r1 points at the array.
+003010   005002                  482     			clr r2					; r2 will count how many times we subtracked 8
+003012   020027 000010           483     			cmp r0, #10				; if the number is a one digit number,
+003016   002411                  484     			blt singles				; jump over the tens section. this way the outcome wont have an extra digit (5=05)
+003020   162700 000010           485     	tens:	sub #10, r0				;//CHANGED TO OCTAL
+003024   005202                  486     			inc r2
+003026   020027 000010           487     			cmp r0, #10
+003032   002372                  488     			bge tens
+003034   062702 000060           489     			add #60, r2				; r2 has the ascii value of the second digit
+003040   110221                  490     			movb r2, (r1)+
+                                 491     
+003042   062700 000060           492     singles:	add #60, r0
+003046   110021                  493     			movb r0, (r1)+
+003050   112711 000000           494     			movb #0, (r1)			; mark the end of the string.
+                                 495     			
+003054   012602                  496     			mov (sp)+, r2
+003056   012601                  497     			mov (sp)+, r1
+003060   000207                  498     			rts pc
+                                 499     			
+                                 500     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                                 501     ;;;;       printBoard	     ;;;;	
+                                 502     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;		
+                                 503     ; printBoard will print the game board, it will set the ascii value of each spot.
+                                 504     ; r0 will iterate over Board buffer that will be used to print the lines of the board each time
+                                 505     ; one row at a time.
+                                 506     ; r1 is used to iterate over the board
+                                 507     ; r2 is used to save the privious piece from finish.
+                                 508     ; r3 points at the finish spot.
+                                 509     ; r4 is used to iterate over each row at a time.
+                                 510     ; r5 is used to check that we wont print out of the boards boundries.
+003062                           511     printBoard:
+003062   010046                  512     				mov r0, -(sp)
+003064   010146                  513     				mov r1, -(sp)
+003066   010246                  514     				mov r2, -(sp)
+003070   010346                  515     				mov r3, -(sp)
+003072   010446                  516     				mov r4, -(sp)
+003074   010546                  517     				mov r5, -(sp)
+003076   012701 003730           518     				mov #Board, r1
+003102   005002                  519     				clr r2					; calc the finish spot.
+003104   005003                  520     				clr r3
+003106   012702 003726           521     				mov #Finish, r2
+003112   112203                  522     				movb (r2)+, r3
+003114   070367 000602           523     				mul nCols, r3
+003120   111202                  524     				movb (r2), r2
+003122   060203                  525     				add r2, r3				; r3 points at the finish spot.
+003124   062703 003730           526     				add #Board, r3			; r3 = Board+finish
+003130   121327 000101           527     				cmpb (r3), #'A
+003134   001003                  528     				bne skip5
+003136   112713 000130           529     					movb #'X, (r3)
+003142   000403                  530     					br print
+                                 531     					
+003144   111302                  532     	skip5:			movb (r3), r2			; r2= board[finish]
+003146   112713 000106           533     					movb #'F, (r3)			; Board[finish]='F'
+                                 534     					
+003152   005005                  535     print:				clr r5					; r5 will point to the end of the board
+003154   005004                  536     				clr r4					; r4 is used to iterate over the board.
+003156   016705 000540           537     				mov nCols, r5
+003162   070567 000536           538     				mul nRows, r5
+003166   062705 003730           539     				add #Board, r5			; r5 points to the end of the board.
+003172   012746 004330           540     				mov #Board_buffer, -(sp)
+003176   012700 004330           541     strRowLoop:		mov #Board_buffer, r0			; sp and r0 point at board buffer, r0 is used to ittarate.	
+003202   121127 000000           542     strColLoop:		cmpb (r1), #0
+003206   001003                  543     				bne simple_print
+003210   112720 000052           544     					movb #'*, (r0)+
+003214   000401                  545     					br skip3
+003216   111120                  546     simple_print:	movb (r1), (r0)+
+003220   005201                  547     	skip3:		inc r1					; board buffer has the template for the current location.
+003222   112720 000040           548     				movb #40, (r0)+			; add a space before the next spot.
+003226   005204                  549     				inc r4					; advance to the next spot
+003230   020467 000466           550     				cmp r4, nCols			; if (r4=nCols) start a new row
+003234   001362                  551     				bne strColLoop			; else keep looping
+003236   005300                  552     				dec r0					; we got to the end of the row,
+003240   112720 000012           553     				movb #10., (r0)+		; insert /n
+003244   112720 000015           554     				movb #13., (r0)+
+003250   112720 000000           555     				movb #0, (r0)+			; mark the end of the string
+003254   004767 177072           556     				jsr pc, printf			; print the row
+003260   005004                  557     				clr r4					; r4=0 restart at a new row(had a bug here and Im happy I found it)
+003262   020105                  558     				cmp r1, r5				; if we got to the end of the board were done,else keep looping.
+003264   001344                  559     				bne strRowLoop
+                                 560     
+003266   005026                  561     				clr (sp)+				; pop board buffer from the stack
+003270   110213                  562     				movb r2, (r3)			; set the finish spot back to what it was.
+003272   012605                  563     				mov (sp)+, r5
+003274   012604                  564     				mov (sp)+, r4
+003276   012603                  565     				mov (sp)+, r3
+003300   012602                  566     				mov (sp)+, r2
+003302   012601                  567     				mov (sp)+, r1
+003304   012600                  568     				mov (sp)+, r0
+003306   000207                  569     				rts pc
+                                 570     
+                                 571     
+                                 572     				
+                                 573     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                                 574     ;;;;       movePiece         ;;;;	
+                                 575     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                                 576     ; movePiece recieves a location and a direction inline,
+                                 577     ; it recieves the board, nRows, nCols in the commen area
+                                 578     ; and it will return in the stack the location the piece will move to if the move will 
+                                 579     ; be taken.
+                                 580     ; if the move is Illegal the function will return -1 in the stack.
+                                 581     	
+003310   010046                  582     movePiece:	mov r0, -(sp)			;
+003312   010146                  583     			mov r1, -(sp)			;
+003314   010246                  584     			mov r2, -(sp)			;
+003316   010346                  585     			mov r3, -(sp)			;
+003320   112500                  586     			movb (r5)+, r0			; r0=row
+003322   010003                  587     			mov r0, r3				; r3=row
+003324   070367 000372           588     			mul nCols, r3			; r3=row*nCols
+003330   062703 003730           589     			add #Board, r3			; r3=Board[row]
+003334   112501                  590     			movb (r5)+, r1			; r1=column
+003336   060103                  591     			add r1, r3				; r3=Board[row]+column
+003340   112502                  592     			movb (r5)+, r2			; r2=direction
+003342   005205                  593     			inc r5					; r5 has now the returning address.
+003344   020067 000354           594     			cmp r0, nRows			;if(row<0 || row>nRows || column<0 || column>nCols){
+003350   103012                  595     			bhis isIllegal			;	the move is illegale take care of it.
+003352   020167 000344           596     			cmp r1, nCols			;	
+003356   103007                  597     			bhis isIllegal			;
+                                 598     ; check if the given spot on the board can be moved.
+003360   121327 000000           599     			cmpb (r3), #0			; if(board[row][column] == 0 || 
+003364   001404                  600     			beq isIllegal			;    board[row][colum] == 'B'){
+003366   121327 000102           601     			cmpb (r3), #'B			; its an illegale move.
+003372   001401                  602     			beq isIllegal
+003374   000402                  603     			br checkDR				; every thing loocks good start the direction.
+003376   000167 000164           604     isIllegal:	jmp IllegalMove			;
+003402   120227 000122           605     checkDR:	cmpb r2, #'R			;
+003406   001013                  606     			bne checkDL				;
+                                 607     ;the direction is to the right 
+003410   005201                  608     moveR:		inc r1					; column++
+003412   005203                  609     			inc r3					; r3=Board[row]+column
+003414   020167 000302           610     			cmp r1, nCols			; if (column==nCols) {
+003420   001766                  611     			beq isIllegal			; the move is illegal }
+003422   121327 000000           612     			cmpb (r3), #0			;
+003426   001770                  613     			beq moveR				;
+003430   005301                  614     			dec r1					;
+003432   000167 000150           615     			jmp successMove			;
+                                 616     ;check if the direction is Left
+003436   120227 000114           617     checkDL:	cmpb r2, #'L			;
+003442   001013                  618     			bne checkDD				;
+                                 619     ;the direction is Left
+003444   005301                  620     moveL:		dec r1					;
+003446   005303                  621     			dec r3					;
+003450   020127 000000           622     			cmp r1, #0				;
+003454   002750                  623     			blt isIllegal			;
+003456   121327 000000           624     			cmpb (r3), #0			;
+003462   001770                  625     			beq moveL				;
+003464   005201                  626     			inc r1					;
+003466   000167 000114           627     			jmp successMove
+                                 628     ;check if the direction is Down			
+003472   120227 000104           629     checkDD:	cmpb r2, #'D			;
+003476   001014                  630     			bne checkDU				;
+                                 631     ;the direction is Down
+003500   005200                  632     moveD:		inc r0					;	 
+003502   066703 000214           633     			add nCols, r3			; r3=Board[row++]+column
+003506   020067 000212           634     			cmp r0, nRows			;
+003512   001425                  635     			beq IllegalMove			;
+003514   121327 000000           636     			cmpb (r3), #0			;
+003520   001767                  637     			beq moveD				;
+003522   005300                  638     			dec r0					;
+003524   000167 000056           639     			jmp successMove			;
+                                 640     ;check if the direction is Up			
+003530   120227 000125           641     checkDU: 	cmpb r2, #'U			;
+003534   001014                  642     			bne IllegalMove			;
+                                 643     ;the direction is down
+003536   005300                  644     moveU:		dec r0					;
+003540   166703 000156           645     			sub nCols, r3			;	 r3=Board[row--]+column
+003544   020027 000000           646     			cmp r0, #0				;
+003550   002406                  647     			blt IllegalMove			;
+003552   121327 000000           648     			cmpb (r3), #0			;
+003556   001767                  649     			beq moveU				;
+003560   005200                  650     			inc r0					;
+003562   000167 000020           651     			jmp successMove			;
+                                 652     ; the move was illegal:
+003566   012603                  653     IllegalMove:	mov (sp)+, r3	;
+003570   012602                  654     				mov (sp)+, r2	;
+003572   012601                  655     				mov (sp)+, r1	;
+003574   012600                  656     				mov (sp)+, r0	;
+003576   012766 177777 000002    657     trick:			mov #-1, 2(sp)	;
+003604   000205                  658     				rts r5			;
+                                 659     ;the move is illegal r0=row,r1=column:
+003606   012603                  660     successMove:	mov (sp)+, r3	;
+003610   012602                  661     				mov (sp)+, r2	;
+003612   110066 000006           662     				movb r0, 6(sp)	;
+003616   110166 000007           663     				movb r1, 7(sp)	;
+003622   012601                  664     				mov (sp)+, r1	;
+003624   012600                  665     				mov (sp)+, r0	;
+003626   000205                  666     				rts r5			;			
+                                 667     
+                                 668     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                                 669     ;;;;       swapLocs                 ;;;;;
+                                 670     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                                 671     ;swapLocs is used to swap 2 locations on the Board.
+                                 672     ;it recieves the 2 locations in the stack and the Board in the commen area.
+                                 673     ;r1,r2,r3, will be used to calculate the address.
+                                 674     ;this function does not care what the Board has in these locations, or if
+                                 675     ;the given location is out of the board. CALL IT ONLY WITH LEAGLE PARAM
+                                 676     
+003630   010346                  677     swapLocs:	mov r3, -(sp)
+003632   010146                  678     			mov r1, -(sp)
+003634   010246                  679     			mov r2, -(sp)
+003636   116603 000012           680     			movb 12(sp), r3
+003642   070367 000054           681     			mul nCols, r3
+003646   116602 000013           682     			movb 13(sp), r2
+003652   060203                  683     			add r2,r3
+003654   062703 003730           684     			add #Board, r3
+003660   116601 000010           685     			movb 10(sp), r1
+003664   070167 000032           686     			mul nCols, r1
+003670   116602 000011           687     			movb 11(sp), r2
+003674   060201                  688     			add r2,r1
+003676   062701 003730           689     			add #Board, r1
+003702   111346                  690     			movb (r3), -(sp)
+003704   111113                  691     			movb (r1), (r3)
+003706   112611                  692     			movb (sp)+, (r1)
+003710   012602                  693     			mov (sp)+, r2
+003712   012601                  694     			mov (sp)+, r1
+003714   012603                  695     			mov (sp)+, r3
+003716   000207                  696     			rts pc	
+                                 697     				
+                                 698     		
+                                 699     		
+                                 700     		
+                                 701     		
+                                 702     		
+                                 703     		
+                                 704     		
+                                 705     		
+                                 706     		
+                                 707     		
+                                 708     ; Board Game Variables
+                                 709     ; the max amount of moves allowed.
+003720   000000                  710     MaxLen: .blkw 1
+                                 711     ; the width of the board.
+003722   000000                  712     nCols:  .blkw 1
+                                 713     ; the length of the board.
+003724   000000                  714     nRows:  .blkw 1
+                                 715     ; the finish spot. first byte is the row, second is the column.
+003726   000000                  716     Finish: .blkw 1
+                                 717     ; the board needs up to 25 bytes, we decided to leave it on 200 because of the privious programs.
+003730   000000 000000 000000    718     Board:  .blkw 200	
+                                 719     ; we actualy need only 51 bytes, 51 words to be genarous.
+004330   000000 000000 000000    720     Board_buffer: .blkw 50			
+                                 721     	
+                                 722     ; program flags and indicaturs.	
+                                 723     ; this flag will indicate if the time ended while waiting for an input from the user.
+004450   000000                  724     times_up: .blkw 1
+                                 725     ; this flag will indicate that the user hit the enter button in scanf.
+004452   000000                  726     pEnter:	  .blkw 1		
+                                 727     ; this flag will hold the amount of times the clock can interupt the program.
+                                 728     ; the time can be between 1-1000, the rate can be 200-100, max interupts = 1000x1000 = 1000000 which is more 
+                                 729     ; than we can calculate with one register. therefor theTime will count the time,and theRate will count interupts per sec.
+004454   001000                  730     theTime:  .word 1000
+004456   000000                  731     theRate:  .word 0						
+                                 732     
+                                 733     
+                                 734     ; Interface Messages.	
+004460      120    154    145    735     ask_nRows: .ascii<Please enter number of rows:>	
+            141    163    145            
+            040    145    156            
+            164    145    162            
+            040    156    165            
+            155    142    145            
+            162    040    157            
+            146    040    162            
+            157    167    163            
+            072                          
+004514      012    015    000    736     .byte 10., 13., 0
+004517      000                  737     .even
+004520      120    154    145    738     ask_nCols: .ascii<Please enter number of columns:>	
+            141    163    145            
+            040    145    156            
+            164    145    162            
+            040    156    165            
+            155    142    145            
+            162    040    157            
+            146    040    143            
+            157    154    165            
+            155    156    163            
+            072                          
+004557      012    015    000    739     .byte 10., 13., 0
+004562                           740     .even
+004562      120    154    145    741     ask_time: .ascii<Please enter game duration in seconds and max number of moves:>
+            141    163    145            
+            040    145    156            
+            164    145    162            
+            040    147    141            
+            155    145    040            
+            144    165    162            
+            141    164    151            
+            157    156    040            
+            151    156    040            
+            163    145    143            
+            157    156    144            
+            163    040    141            
+            156    144    040            
+            155    141    170            
+            040    156    165            
+            155    142    145            
+            162    040    157            
+            146    040    155            
+            157    166    145            
+            163    072                   
+004660      012    015    000    742     .byte 10., 13., 0
+004663      000                  743     .even
+004664      120    154    145    744     ask_board: .ascii<Please enter the board:>
+            141    163    145            
+            040    145    156            
+            164    145    162            
+            040    164    150            
+            145    040    142            
+            157    141    162            
+            144    072                   
+004713      012    015    000    745     .byte 10., 13., 0
+004716      012    015           746     time_: .byte 10., 13.
+004720      127    145    040    747     .ascii<We are all set. Total time: >
+            141    162    145            
+            040    141    154            
+            154    040    163            
+            145    164    056            
+            040    124    157            
+            164    141    154            
+            040    164    151            
+            155    145    072            
+            040                          
+004754      000                  748     .byte 0
+004755      000                  749     .even
+                                 750     ; total_time is the amount of time left in seconds we need:
+                                 751     ; 4 bytes for 4 digits, and one byte to mark the end of the string.
+                                 752     ; to keep it even and genarous 8 bytes is more then enough.
+004756      000    000    000    753     total_time: .byte 0,0,0,0,0,0,0,0
+            000    000    000            
+            000    000                   
+                                 754     	
+004766      040    163    145    755     sec_:	 .ascii< sec>
+            143                          
+004772      012    015    000    756     .byte 10., 13., 0
+004775      000                  757     .even
+004776      115    141    170    758     max_:	 .ascii<Max number of allowed moves: >
+            040    156    165            
+            155    142    145            
+            162    040    157            
+            146    040    141            
+            154    154    157            
+            167    145    144            
+            040    155    157            
+            166    145    163            
+            072    040                   
+005033      000                  759     		 .byte 0
+005034                           760     		 .even 
+005034      000    000    000    761     maxLen_: .byte 0,0,0,0
+            000                          
+005040      040    155    157    762     moves_:	 .ascii< moves>
+            166    145    163            
+005046      012    015           763     		 .byte 10., 13.
+005050      120    162    145    764     		 .ascii<Press Enter key when you are ready...>
+            163    163    040            
+            105    156    164            
+            145    162    040            
+            153    145    171            
+            040    167    150            
+            145    156    040            
+            171    157    165            
+            040    141    162            
+            145    040    162            
+            145    141    144            
+            171    056    056            
+            056                          
+005115      012    015    000    765     .byte 10., 13., 0
+005120                           766     .even
+005120      012    015    000    767     end_line: .byte 10., 13., 0
+005123      000                  768     .even
+005124                           769     Current_:
+005124      103    165    162    770     .ascii<Current Board:>
+            162    145    156            
+            164    040    102            
+            157    141    162            
+            144    072                   
+005142      012    015    000    771     .byte 10., 13., 0
+005145      000                  772     .even
+005146      115    157    166    773     Moves_:	  .ascii<Moves:>
+            145    163    072            
+005154      000                  774     .byte 0
+005155      000                  775     .even
+005156      106    151    156    776     Final_M: .ascii<Final Moves:>
+            141    154    040            
+            115    157    166            
+            145    163    072            
+005172      000                  777     .byte 0
+005173      000                  778     .even
+005174      127    145    154    779     Well_: .ascii<Well done, you won!>
+            154    040    144            
+            157    156    145            
+            054    040    171            
+            157    165    040            
+            167    157    156            
+            041                          
+005217      012    015    000    780     .byte 10., 13., 0
+005222                           781     .even
+                                 782     ;(R,C,D) = 7 bytes, + (->)(2) = 9... for 20 moves we need 70*7/2 words = 490/2 = 245 < 300
+005222   000000 000000 000000    783     Moves:	.blkw 300
+006022      040    155    157    784     left_: .ascii< moves left, please enter your move:>
+            166    145    163            
+            040    154    145            
+            146    164    054            
+            040    160    154            
+            145    141    163            
+            145    040    145            
+            156    164    145            
+            162    040    171            
+            157    165    162            
+            040    155    157            
+            166    145    072            
+006066      012    015    000    785     .byte 10., 13., 0
+006071      000                  786     .even
+006072      124    151    155    787     timeUp_: .ascii<Time's up. Game Over!>
+            145    047    163            
+            040    165    160            
+            056    040    107            
+            141    155    145            
+            040    117    166            
+            145    162    041            
+006117      012    015    000    788     .byte 10., 13., 0
+006122                           789     .even
+006122      116    157    040    790     noMoves_: .ascii<No more moves allowed. Game Over!>
+            155    157    162            
+            145    040    155            
+            157    166    145            
+            163    040    141            
+            154    154    157            
+            167    145    144            
+            056    040    107            
+            141    155    145            
+            040    117    166            
+            145    162    041            
+006163      012    015    000    791     .byte 10., 13., 0
+006166                           792     .even
+006166      111    154    154    793     Illegal_: .ascii<Illegal move. Try again>
+            145    147    141            
+            154    040    155            
+            157    166    145            
+            056    040    124            
+            162    171    040            
+            141    147    141            
+            151    156                   
+006215      012    015    000    794     .byte 10., 13., 0
+006220                           795     .even
+                                 796     
+006220   001000                  797     rate: .word 1000
+                                 798     
+
+
+	S Y M B O L   T A B L E
+	=======================
+
+SYMBOL    VALUE   TYPE
+------    -----   ----
+tks       177560  abs      
+tkb       177562  abs      
+tps       177564  abs      
+tpb       177566  abs      
+lcs       177546  abs      
+main      001000  text     
+putChar   002410  text     
+getChar   002212  text     
+clock     002426  text     
+times_up  004450  text     
+ask_nRow  004460  text     
+printf    002352  text     
+nRows     003724  text     
+scanf     002110  text     
+ask_nCol  004520  text     
+nCols     003722  text     
+ask_time  004562  text     
+Board_bu  004330  text     
+timeMove  002470  text     
+ask_boar  004664  text     
+str2Boar  002650  text     
+time_     004716  text     
+total_ti  004756  text     
+sec_      004766  text     
+max_      004776  text     
+maxLen_   005034  text     
+moves_    005040  text     
+Moves     005222  text     
+start     001326  text     
+MaxLen    003720  text     
+Current_  005124  text     
+printBoa  003062  text     
+Moves_    005146  text     
+end_line  005120  text     
+int2Str   003000  text     
+left_     006022  text     
+getMove   001422  text     
+param     001542  text     
+skip4     001462  text     
+timeUp_   006072  text     
+TheEnd    002070  text     
+Ill_mes   001562  text     
+movePiec  003310  text     
+leagleMo  001604  text     
+Illegal_  006166  text     
+movesLef  002026  text     
+swapLocs  003630  text     
+insert    001644  text     
+insert2   001650  text     
+Finish    003726  text     
+Board     003730  text     
+Final_M   005156  text     
+Well_     005174  text     
+check_T   002046  text     
+noMoves_  006122  text     
+theTime   004454  text     
+prep_end  002060  text     
+pEnter    004452  text     
+checkThe  002134  text     
+skip2     002150  text     
+end_scan  002176  text     
+BS_check  002234  text     
+is_char   002314  text     
+scan_end  002334  text     
+print_wa  002342  text     
+wait_1    002372  text     
+skipLoad  002424  text     
+theRate   004456  text     
+mid_sec   002450  text     
+rate      006220  text     
+check_cl  002454  text     
+clock_en  002466  text     
+calcTime  002512  text     
+spaceLoo  002554  text     
+len_loop  002572  text     
+end_len   002626  text     
+trans_Lo  002702  text     
+zeroChec  002722  text     
+trans_en  002740  text     
+simple_t  002736  text     
+end_str2  002764  text     
+singles   003042  text     
+tens      003020  text     
+skip5     003144  text     
+print     003152  text     
+strRowLo  003176  text     
+strColLo  003202  text     
+simple_p  003216  text     
+skip3     003220  text     
+isIllega  003376  text     
+checkDR   003402  text     
+IllegalM  003566  text     
+checkDL   003436  text     
+moveR     003410  text     
+successM  003606  text     
+checkDD   003472  text     
+moveL     003444  text     
+checkDU   003530  text     
+moveD     003500  text     
+moveU     003536  text     
+trick     003576  text     

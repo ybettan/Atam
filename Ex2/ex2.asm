@@ -1,0 +1,159 @@
+;==================================================
+; program
+;==================================================
+. = torg + 1000
+			
+;--------------------------------------------------------------------------------------------------------------------
+;initiallize variables
+
+FIRSTR = 1
+FIRSTC = 1
+
+ERROR0 = 0										; the errors that can be returned
+ERROR1 = 1
+ERROR2 = 2
+ERROR3 = 3
+
+main:		mov nRows,currR			;currR:	 	is a variable that keeps the current row on board and initiallize to nRows 
+			mov #FIRSTC,currC		;currC:	 	is a variable that keeps the current colon on board and initiallize to FIRSTC
+			mov #Moves,r2			;r2:		is a register that points to the next move and initiallize to the address Moves
+			movb #'S,Output			;Output: 	is a variable that keeps the result of the moves serie and initiallize to SUCCESS
+			clr	numMoves			;numMoves: 	is a variable that keeps the current number of moves played and initiallize to 0
+			clr Score				;Score:		is a variable that keeps the points sum and initiallize to 0			
+									
+			mov currR,r1			;r1:		is a register that points to the next byte to be read on Board. it is calculated by r1 = Board+(currR - 1)*nCols+(currC - 1)	
+			dec r1				
+			mul nCols,r1
+			add currC,r1
+			dec r1
+			add #Board,r1
+;--------------------------------------------------------------------------------------------------------------------			
+;checks if we finished executing all moves. if yes branch to "result" else continue to "exe"	
+		
+status:		cmpb	#'@,(r2)		
+			beq result	
+			
+			inc numMoves		
+; --------------------------------------------------------------------------------------------------------------------
+;update currR and currC according to (r2) - it is done using an algoritem that is described in the external documanatation
+
+				movb (r2),r3		;r3 = the number of bytes we need to 'slalom' on Board
+move:			cmp r3,#0			;if we finished to 'slalom' brache back to "status" (next move) else continue
+				ble exe
+									;if |nRows - currR| is even then we need to move to the right or to the left otherwise
+				mov nRows,r5		;r5 = nRows - currR
+				sub currR,r5		
+				clr r4				;insuring that we recive a corect answer with DIV
+				div #2,r4			;r5 = (r4,r5) % 2 = r5 % 2
+				cmp r5,#0
+				bne left
+						
+	right:		mov nCols,r0		;r0 = the distance to the end of the row
+				sub currC,r0
+				cmp r3,r0			
+				bgt Ropt2
+
+		Ropt1:	add r3,currC		;the distance to the end of the row is bigger than then distance we need to proceed
+				clr r3
+				jmp move
+			
+		Ropt2:	mov nCols,currC		;the distance to the end of the row is smaller than then distance we need to proceed so we will go 1 row up 
+				dec currR
+				sub r0,r3
+				dec r3
+				jmp move
+			
+	left:		mov currC,r0		;r0 = the distance to the end of the row
+				dec r0
+				cmp r3,r0			
+				bgt Lopt2
+			
+		Lopt1:	sub r3,currC		;the distance to the end of the row is bigger than then distance we need to proceed
+				clr r3
+				jmp move
+			
+		Lopt2:	mov #FIRSTC,currC	;the distance to the end of the row is smaller than then distance we need to proceed so we will go 1 row up 
+				dec currR
+				sub r0,r3
+				dec r3
+				jmp move
+; --------------------------------------------------------------------------------------------------------------------
+; after ariving to a square we will check if we arrived to a num square , a snake square or a ladder or if we glitched out of Board and act respectively
+
+exe:				mov currR,r1			; update r1 according to the placment on Board using 	r1 = Board + (currR - 1) * nCols + (currC - 1)
+					dec r1
+					mul nCols,r1
+					add currC,r1
+					dec r1
+					add #Board,r1
+				
+	glitch:			cmp currR,#FIRSTR		; according to the equation,if we continue moving after the final square we will have to be placed in a row that smaller than FIRSTR
+					bge S 					; if we glitched from Board we need to handle ERROR2 or branch to "S" otherwise
+		
+					movb #'F,Output			; handling ERROR2 					
+					mov #ERROR2,Score
+					jmp result
+				
+	S:				cmpb (r1),#'S 			; if (r1) is 'S then we need to proceed with "S" or branch to "L" otherwise 
+					bne L 
+				
+					cmp currR,nRows			; if we hit a snake at the lowest row we need to handle ERROR0
+					bne Sact 
+			
+		Serror:		movb #'F,Output			; handling ERROR0
+					mov #ERROR0,Score
+					jmp result
+					
+		Sact:		inc currR				; handling the case of a legal snake 
+					jmp exe 
+				
+	L:				cmpb (r1),#'L  			; if (r1) is 'L then we need to proceed with "L" or branch to "num" otherwise
+					bne num 
+					
+					cmp currR,#FIRSTR		; if we hit a ladder at the highest row we need to handle ERROR1
+					bne Lact 
+					
+		Lerror:		movb #'F,Output			; handling ERROR1
+					mov #ERROR1,Score
+					jmp result
+					
+		Lact:		dec currR 				; handling the case of a legal ladder
+					jmp exe 
+	
+	num:			movb (r1),r3 			; if we arrived here the only possible option is that we have hit a square containing a number  
+					add r3,Score			
+					inc r2 					; make r2 point to the next move to be checked 
+					jmp status
+; --------------------------------------------------------------------------------------------------------------------
+; the only failure possible at this stage is if we had execute all moves but didn't arrive to the final square 
+
+result:				cmp Output,#'S 			; if Output != S thaen all the outputs are alredy updated
+					beq next
+					halt 
+					
+		next:		cmp currR,#FIRSTR		; if currR != FIRSTR then we have a success in an internal square    
+					bne IntError
+					
+					mov nRows,r5			; r5 = nRows
+					clr r4					;insuring that we recive a corect answer with DIV
+					div #2,r4					; r5 = (r4,r5) % 2 = r5 % 2
+					cmp r5,#0
+					beq nRowEven			; if (nRows % 2 == 0) branch to "nRowEven" else continue to "nRowOdd" 
+		
+											; handling the case with odd number of rows
+		nRowOdd:	cmp currC,nCols			; if currC != nCols then we have a success in an internal square
+					bne IntError
+					halt
+					
+											; handling the case with even number of rows
+		nRowEven:	cmp currC,#FIRSTC		; if currC != FIRSTR then we have a success in an internal square
+					bne IntError
+					halt
+					
+		IntError:	movb #'F,Output			; handling ERROR3
+					mov #ERROR3,Score
+					halt
+; --------------------------------------------------------------------------------------------------------------------
+currR:		.blkw 1
+currC:		.blkw 1
+; --------------------------------------------------------------------------------------------------------------------

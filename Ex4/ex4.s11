@@ -1,0 +1,537 @@
+
+LCS = 177546
+TKS = 177560
+TKB = 177562
+TPS = 177564
+TPB = 177566
+
+;=====================================================================
+;							INTERRUPT VECTORS
+;=====================================================================
+
+;interupt vectore for keyboard
+.= torg + 60
+
+.word getc				; address of interupt handler
+.word 200				; content of PSW for handler
+						; priority = 4	
+
+;interupt vectore for clock
+.= torg + 100
+
+.word clock				; address of interupt handler
+.word 300				; content of PSW for handler
+						; priority = 6
+	
+;=====================================================================
+;								VARIABLES
+;=====================================================================
+.= torg + 1000
+
+X:			.word	1
+Y:			.word	1
+
+nCols:		.blkw	3
+nRows:		.blkw	3
+Board:		.blkw	30
+
+lucky:		.blkw	30
+
+time:		.blkw	3
+times_up:	.word	0
+
+counter:	.word	0
+rate:		.word	1000
+
+score:		
+
+start:		.word	100,000				; start = ['@,0]
+
+;=====================================================================
+;								STRINGS
+;=====================================================================
+
+str0:		.ascii <Please enter number of rows:\0>
+str1:		.ascii <Please enter number of columns:\0>
+str2:		.ascii <Please enter the board:\0>
+str3:		.ascii <Please enter game duration in seconds:\0>
+str4:		.ascii <We are all set. Total time:\0>
+str5:		.ascii <sec\0>
+str6:		.ascii <Press Enter key when you are ready...\0>
+str7:		.ascii <Current Board:\0>
+str8:		.ascii <The current score is:\0>
+str9:		.ascii <The remaining time is:\0>
+str10:		.ascii <Select your lucky number:\0>
+
+
+new_line:	.ascii <\n\r\0>
+space:		.ascii < \0>
+
+;=====================================================================
+;					 	MAIN - USER INTERFACE
+;=====================================================================
+
+.= torg + 2000
+
+main:	mov #main,sp			; initiallize stack
+
+		mov #str0,-(sp)			; ask for nRows and scan it
+		mov #nRows,-(sp)
+		jsr pc,step
+		mov (sp)+,(sp)+
+		
+		mov #str1,-(sp)			; ask for nCols and scan it
+		mov #nCols,-(sp)
+		jsr pc,step
+		mov (sp)+,(sp)+
+		
+		mov #str2,-(sp)			; ask for Board and scan it
+		mov #Board,-(sp)
+		jsr pc,step
+		mov (sp)+,(sp)+
+		
+		mov #str3,-(sp)			; ask for time and scan it
+		mov #time,-(sp)
+		jsr pc,step
+		mov (sp)+,(sp)+
+		
+		mov #str4,-(sp)			; print str4 + time + str5
+		jsr pc,printf
+		mov #space,-(sp)			
+		jsr pc,printf
+		mov #time,-(sp)			
+		jsr pc,printf
+		mov #space,-(sp)			
+		jsr pc,printf
+		mov #str5,-(sp)			
+		jsr pc,printf
+		mov #new_line,-(sp)		
+		jsr pc,printf
+		add #14,sp
+		
+		mov #str6,-(sp)			; ask for start char and scan it
+		mov #start,-(sp)
+		jsr pc,step
+		mov (sp)+,(sp)+
+	
+		mov rate,counter		; initiallize counter
+		bis #100,@#LCS			; enable clock interrupts
+			
+;--------------------------- START GAME ------------------------------
+		
+game:	mov #str7,-(sp)			; print str7
+		jsr pc,printf
+		mov #new_line,-(sp)		
+		jsr pc,printf
+		mov (sp)+,(sp)+
+		
+		jsr pc,printBoard		; print board
+		mov #new_line,-(sp)		
+		jsr pc,printf
+		tst (sp)+
+
+		mov #str8,-(sp)			; print str8
+		jsr pc,printf
+		mov #new_line,-(sp)		
+		jsr pc,printf
+		mov (sp)+,(sp)+
+		
+		mov #str9,-(sp)			; print str9 + time
+		jsr pc,printf
+		mov #space,-(sp)		
+		jsr pc,printf
+		mov #time,-(sp)		
+		jsr pc,printf
+		mov #new_line,-(sp)		
+		jsr pc,printf
+		mov #new_line,-(sp)		
+		jsr pc,printf
+		add #5,(sp)+
+		
+		mov #new_line,-(sp)		; print str10
+		jsr pc,printf
+		mov #str10,-(sp)
+		jsr pc,printf
+		mov #new_line,-(sp)
+		jsr pc,printf
+		add #6,(sp)+
+		
+		mov #lucky,-(sp)		; scan lucky number without waiting
+		jsr pc,scanf
+		tst (sp)+
+		
+		; starting fibooooo
+			
+; l:		wait
+		; cmp times_up,#1
+		; bne l
+		; mov #str12,-(sp)			; print str12
+		; mov #1,-(sp)			
+		; jsr pc,printf
+		; mov (sp)+,(sp)+
+		; halt
+
+	
+		halt
+
+	
+	
+;=====================================================================
+;						INTERRUPT PROCEDURES
+;=====================================================================
+	
+.= torg + 5000
+
+	
+;================== keyboard interup handler =========================
+
+;-------- get one char from the keyboard into r0 and echo ------------
+
+getc:		mov r0,-(sp)
+
+			mov buffer,r0		; r0 = pointer to next char
+			add offset,r0
+			
+			cmpb @#TKB,#'\r		; if ENTER was hit finish scaning
+			bne bk_sp
+			
+			movb #'\0,(r0)		; enter end-of-str char into the buffer
+			mov #1,finish
+			br exitPC
+
+bk_sp:		cmpb @#TKB,#10		; if back-space was hit "erase" last char
+			bne insert
+		
+			cmp offset,#0		; if we are at the beggining of buffer do nothing
+			beq reanable
+			
+			dec offset			; "erase" last char
+			tstb @#TPS			; wait for printer to be ready
+			bpl .-4
+			movb #10,@#TPB		; print back-space
+			tstb @#TPS			; wait for printer to be ready
+			bpl .-4
+			movb #40,@#TPB		; print space
+
+insert:		movb @#TKB,(r0)		; add char to buffer
+			cmpb (r0),#10		; if back space was entered to buffer dont increase offset
+			beq echo
+			inc offset			; increase offset
+	
+echo:		tstb @#TPS			; wait for printer to be ready
+			bpl .-4
+			
+			movb (r0),@#TPB		; print char and disable printer
+reanable:	bis #101,@#TKS		; enable keyboard
+		
+exitPC:		mov (sp)+,r0
+			rti
+			
+
+
+;===================== clock interup handler =========================
+
+;---------------- interrupt "rate" time per second -------------------
+
+clock:	dec counter
+		cmp counter,#0
+		bgt	exitC
+	
+		mov rate,counter
+		dec time
+		cmp time,#0
+		bgt exitC
+		
+		mov #1,times_up
+		
+exitC:	rti
+
+;=====================================================================
+;							FUNCTIONS
+;=====================================================================
+
+buffer:		.blkw	30
+offset:		.blkw	1
+finish:		.blkw	1
+;---------------------------------------------------------------------
+;	name :	 		scanf 
+
+;	params :		the address of a buffer is given by stack
+
+;	description:	the procedure insert the keyboard input string into the buffer 
+;---------------------------------------------------------------------
+
+scanf:		mov 2(sp),buffer	; buffer containe a pointer to the input array pointer
+			clr offset
+			clr finish
+
+			bis #101,@#TKS		; enable keyboard and keyboard interupt
+			
+			rts pc
+;---------------------------------------------------------------------			
+
+		
+		
+			
+;---------------------------------------------------------------------
+;	name :	 		printf 
+
+;	params :		str: the string address to be printed - given by stack
+
+;	description:	the procedure print the given string
+;---------------------------------------------------------------------
+
+printf:		mov r0,-(sp)
+
+			mov 4(sp),r0		; r0 = str pointer 
+			
+printfL:	cmpb (r0),#'\0
+			beq exitPF
+			movb (r0)+,@#TPB
+			tstb @#TPS			; wait for printer to be ready	
+			bpl .-4
+			br printfL
+			
+exitPF:		mov (sp)+,r0
+			rts pc
+;---------------------------------------------------------------------
+
+
+
+;---------------------------------------------------------------------
+;	name :	 		Fibo 
+
+;	params :		X : the lower fibonaci number is given in common area
+;					Y : the higher fibonaci number is given in common area
+
+;	description:	the procedure inset Y into X and the new fibonatci number into Y.
+;					if X or Y reach 1000 we will initiallize them X=Y=1 
+;---------------------------------------------------------------------
+
+Fibo:	mov X,-(sp)
+		add Y,(sp)
+		mov Y,X
+		mov (sp)+,Y
+		
+		cmp Y,#1000
+		blt exitF
+		mov #1,X
+		mov #1,Y
+
+exitF:	rts pc
+; --------------------------------------------------------------------
+
+
+
+;---------------------------------------------------------------------
+;	name :	 		octPower 
+
+;	params:			num:  a number  - given by stack
+
+;	description:	return at num placment in stack 10^num
+;---------------------------------------------------------------------
+
+octPower:		mov r0,-(sp)
+				mov r1,-(sp)
+
+				mov 6(sp),r0		; r0 = num
+				mov #1,r1			; r1 = the result
+				
+				mul #10,r1
+				sob r0,.-4
+
+				mov r1,6(sp)
+
+exitOP:			mov (sp)+,r1
+				mov (sp)+,r0
+				rts pc
+; --------------------------------------------------------------------
+
+
+
+;---------------------------------------------------------------------
+;	name :	 		str2oct 
+
+;	params:			str:  a str pointer  - given by stack
+
+;	description:	return at str placment in stack the octal value of char
+;---------------------------------------------------------------------
+
+str2oct:		mov r0,-(sp)
+				mov r1,-(sp)
+				mov r3,-(sp)
+				mov r4,-(sp)
+				mov r5,-(sp)
+
+				
+				mov 14(sp),r0		; r0 = str running pointer	
+				clr r1
+				clr r3				; r3 = will be result
+				
+				inc r1
+				cmpb (r0)+,#'\0
+				bne .-6
+				
+				sub #2,r1			; r1 = str_len - 1
+				mov 14(sp),r0		; r0 = pointe to the begining of str
+				cmp r1,#0	
+				beq lsb
+				
+str2octL:		mov r1,-(sp)		; push (str_len - 1)
+				jsr pc,octPower
+				mov (sp)+,r5		; r5 = oct multiplier
+				movb (r0)+,r4		
+				sub #60,r4			; r4 = octal value of current char
+				mul r4,r5
+				add r5,r3	
+				sob r1,str2octL
+				
+lsb:			movb (r0),r5		; adding lsb
+				sub #60,r5
+				add r5,r3
+				
+				mov r3,14(sp)		; return the result by stack
+
+exitS2O:		mov (sp)+,r5
+				mov (sp)+,r4
+				mov (sp)+,r3
+				mov (sp)+,r1
+				mov (sp)+,r0
+				rts pc
+; --------------------------------------------------------------------
+
+
+
+;---------------------------------------------------------------------
+;	name :	 		strcpy 
+
+;	params:			board_offset: 	the offset from #Board	- given by stack
+
+;	description:	the procedure copy string thats start at #Board + board_offset
+;				    with len of nCols into buffer with spaces and add \0 at the end
+;---------------------------------------------------------------------
+
+strcpy:			mov r0,-(sp)
+				mov r1,-(sp)
+				mov r2,-(sp)
+
+				mov #Board,r0			; r0 = pointer to str begin
+				add 10(sp),r0		
+				
+				mov #buffer,r2			; r2 = pointer to buffer
+				
+				mov #nCols,-(sp)
+				jsr pc,str2oct
+				mov (sp)+,r1			; r1 = nCols
+				
+strcpyL:		movb (r0)+,(r2)+		; insert char	
+				movb #40,(r2)+			; insert space
+				sob r1,strcpyL
+				
+				movb #'\0,(r2)			; enter end-str-char to buffer
+
+exitSC:			mov (sp)+,r2
+				mov (sp)+,r1
+				mov (sp)+,r0
+				rts pc
+; --------------------------------------------------------------------
+
+
+
+;---------------------------------------------------------------------
+;	name :	 		printBoard 
+
+;	description:	the procedure print the board
+;---------------------------------------------------------------------
+
+printBoard:		mov r0,-(sp)
+				mov r1,-(sp)
+				mov r2,-(sp)
+				mov r3,-(sp)
+
+				mov #1,r0			; r0 = iterator
+				clr r1				; r1 = board offset
+					
+				mov #nRows,-(sp)	; r2 = nRows + 1
+				jsr pc,str2oct
+				mov (sp)+,r2
+				inc r2
+				
+				mov #nCols,-(sp)	; r3 = nCols
+				jsr pc,str2oct
+				mov (sp)+,r3
+				
+printboL:		cmp r0,r2
+				beq exitPB
+				
+				mov r1,-(sp)		; copy line to buffer
+				jsr pc,strcpy
+				tst (sp)+
+				
+				mov #buffer,-(sp)	; print board line to screen
+				jsr pc,printf
+				tst (sp)+
+				
+				mov #new_line,-(sp)	; print new line feed
+				jsr pc,printf
+				tst (sp)+
+				
+				add r3,r1			; offset += nCols
+				inc r0
+				br printboL
+
+exitPB:			mov (sp)+,r3
+				mov (sp)+,r2
+				mov (sp)+,r1
+				mov (sp)+,r0
+				rts pc
+; --------------------------------------------------------------------
+
+
+
+
+
+
+
+;---------------------------------------------------------------------
+;	name :	 		step
+
+;	params:			output_str:	output string address
+;					input_buffer:	input buffer address
+
+;	description:	the procedure print and scan all needed for an interface step
+;---------------------------------------------------------------------
+
+step:	mov r0,-(sp)
+		mov r1,-(sp)
+
+		mov 10(sp),r0			; r0 = output str pointer	
+		mov 6(sp),r1			; r1 = input buffer pointer
+		
+		mov r0,-(sp)			; print str0
+		jsr pc,printf
+		mov #new_line,-(sp)
+		jsr pc,printf
+		mov r1,-(sp)			; scan nRows
+		jsr pc,scanf	
+w:		cmp finish,#1
+		bne w 	
+		mov #new_line,-(sp)		
+		jsr pc,printf
+		add #10,sp
+			
+		mov (sp)+,r1
+		mov (sp)+,r0
+		rts pc
+; --------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
